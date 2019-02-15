@@ -106,8 +106,9 @@ class Log implements Interfaces\FacadeInterface
         }
         if (self::$DEBUG) {
             echo $msg;
+        } else {
+            return error_log($msg, 3, self::$LOG_FILE);
         }
-        return error_log($msg, 3, self::$LOG_FILE);
     }
 
     public static function i() {

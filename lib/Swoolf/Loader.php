@@ -24,7 +24,7 @@ class Loader
         if (file_exists($file)) {
             include_once $file;
         } else {
-            throw new LoadException('Load class '.$class.' failed. file "'.$file.'" not exists.');
+            throw new LoaderException('Load class '.$class.' failed. file "'.$file.'" not exists.');
         }
     }
 
@@ -38,6 +38,6 @@ class Loader
     }
 
 }
-class LoadException extends \Exception {}
+class LoaderException extends \Exception {}
 spl_autoload_register(['\\Swoolf\\Loader', 'autoload']);
 //spl_autoload_register('\\Swoolf\\Loader::autoload');
