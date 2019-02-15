@@ -169,9 +169,9 @@ class HttpServer
             $this->log("[exception]: " . $exception);//Exception::__toString()
             
             // set status
-            $response->status(500);//'Internal Server Error'
+            $response->status(500);//'Internal A Error'
             //send content
-            $response->end('Internal Server Error');
+            $response->end('Internal A Error');
         } else {
             $result = json_decode($result, true);
     
@@ -212,7 +212,7 @@ class HttpServer
          
          $http->set($this->setting);
         
-         // Set Event Server callback function
+         // Set Event A callback function
          $http->on('Start', array($this, 'onMasterStart'));
          $http->on('ManagerStart', array($this, 'onManagerStart'));
          $http->on('WorkerStart', array($this, 'onWorkerStart'));
