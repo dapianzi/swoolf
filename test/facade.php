@@ -7,7 +7,7 @@
  */
 define('APP_PATH', dirname(dirname(__FILE__)));
 define('DS', DIRECTORY_SEPARATOR);
-include_once APP_PATH . DS . 'lib' . DS . 'Swoolf' . DS . 'App.php';
+include_once APP_PATH . DS . 'lib' . DS . 'Swoolf' . DS . 'Loader.php';
 class TestFacade implements \Swoolf\Interfaces\FacadeInterface {
     public $conf;
     public function __construct($conf)
@@ -24,7 +24,7 @@ class TestFacade implements \Swoolf\Interfaces\FacadeInterface {
     }
 }
 
-$app = new \Swoolf\App([]);
+$app = new \Swoolf\App(APP_PATH . '/conf/application.ini');
 $app->log::ok('Facade success!');
 echo $app->utils::now().PHP_EOL;
 $app->loader::regNamespace('Test', APP_PATH . DS . 'test');

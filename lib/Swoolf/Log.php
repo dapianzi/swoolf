@@ -12,7 +12,7 @@ namespace Swoolf;
 class Log implements Interfaces\FacadeInterface
 {
 
-    static public $LOG_FILE = './swoolf.log';
+    static public $LOG_FILE = '/tmp/swoolf.log';
 
     static public $DEBUG = TRUE;
 
@@ -21,43 +21,47 @@ class Log implements Interfaces\FacadeInterface
     }
 
     static public function setLogFile($filename) {
-        if (is_writable($filename)) {
+        if (is_writable(dirname($filename))) {
             self::$LOG_FILE = $filename;
         } else {
-            throw new LogException('filename: ' . $filename . ' can not be written.');
+            self::err('filename: ' . $filename . ' can not be written.');
         }
     }
 
     /**
      * @param $var
+     * @param bool $flag
      * @return bool
      */
-    static public function err($var) {
-        return self::log($var, 'r');
+    static public function err($var, $flag=FALSE) {
+        return self::log($var, $flag, 'r');
     }
 
     /**
      * @param $var
+     * @param bool $flag
      * @return bool
      */
-    static public function warm($var) {
-        return self::log($var, 'y');
+    static public function warm($var, $flag=FALSE) {
+        return self::log($var, $flag, 'y');
     }
 
     /**
      * @param $var
+     * @param bool $flag
      * @return bool
      */
-    static public function info($var) {
-        return self::log($var, 'b');
+    static public function info($var, $flag=FALSE) {
+        return self::log($var, $flag, 'b');
     }
 
     /**
      * @param $var
+     * @param bool $flag
      * @return bool
      */
-    static public function ok($var) {
-        return self::log($var, 'g');
+    static public function ok($var, $flag=FALSE) {
+        return self::log($var, $flag, 'g');
     }
 
     /**
@@ -74,9 +78,10 @@ class Log implements Interfaces\FacadeInterface
      *
      * @param $var
      * @param string $color
+     * @param bool $flag
      * @return bool
      */
-    static public function log($var, $color='') {
+    static public function log($var, $flag=FALSE, $color='') {
 
         $str = is_object($var)||is_array($var) ? json_encode($var) : strval($var);
         switch ($color) {
@@ -104,10 +109,13 @@ class Log implements Interfaces\FacadeInterface
         } else {
             $msg = sprintf("[%s] %s".PHP_EOL, date('Y-m-d H:i:s'), $str);
         }
-        if (self::$DEBUG) {
+        if ($flag) {
             echo $msg;
-        } else {
+        }
+        if (!self::$DEBUG) {
             return error_log($msg, 3, self::$LOG_FILE);
+        } else if (!$flag) {
+            echo $msg;
         }
     }
 

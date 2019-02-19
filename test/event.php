@@ -8,7 +8,7 @@
 
 define('APP_PATH', dirname(dirname(__FILE__)));
 
-include APP_PATH . DIRECTORY_SEPARATOR.'lib/Swoolf/App.php';
+include APP_PATH . DIRECTORY_SEPARATOR.'lib/Swoolf/Loader.php';
 class EventTest {
 
     public function run($data) {
@@ -24,7 +24,7 @@ class EventTest {
     }
 }
 
-$app = new \Swoolf\App(['name' => 'Test Events']);
+$app = new \Swoolf\App(APP_PATH . '/conf/application.ini');
 
 function fn_event($data) {
     \Swoolf\Log::warm('this method should already been removed.');

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WS TEST</title>
+    <link href="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
+    <script src="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/js/bootstrap.min.js"></script>
+    <style type="text/css" rel="stylesheet">
+        #result p{padding: 15px; margin: 2px; line-height: 28px;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <form class="form-inline" style="margin: 10px 0;">
+        <div class="form-group">
+            <label for="msg-inp">Message</label>
+            <input type="text" class="form-control" id="msg-inp" placeholder="text" />
+        </div>
+        <button type="button" id="send-msg" class="btn btn-default">Send</button>
+    </form>
+    <div id="result"></div>
+</div>
+<script>
+    var client = {
+        ws: null,
+        ws_init: function() {
+            var self = this;
+            this.ws = new WebSocket("ws://192.168.1.27:8907");
+            this.ws.onopen = function(evt) {
+                console.log(evt);
+            }
+            this.ws.onmessage = function(evt) {
+                self.wsMessage(evt);
+            }
+            this.ws.onclose = function(evt) {
+                self.wsClose(evt);
+            }
+        },
+        wsOpen: function(evt) {
+            //console.log(evt);
+            this.ws_open = true;
+        },
+        wsMessage: function(evt) {
+            this.insertMsg(evt.data, false);
+        },
+        wsClose: function(evt) {
+            console.log('Connection closed.');
+        },
+        sendMsg: function(msg) {
+            msg = JSON.stringify(msg);
+            this.ws.send(msg);
+            this.insertMsg(msg, true);
+        },
+        insertMsg: function(msg, flag) {
+            var cls = flag ? 'bg-primary' : 'bg-success';
+            $('#result').append('<p class="'+ cls +'">'+ msg + '</p>');
+        },
+        bind_events: function() {
+            var self = this;
+            $('#send-msg').on('click', function() {
+                var text = $('#msg-inp').val();
+                if ('' !== text) {
+                    self.sendMsg({
+                        "time": new Date().getDate(),
+                        "content": text
+                    });
+                    $('#msg-text').val('').focus();
+                }
+            });
+            $('#msg-inp').on('keyup', function(e) {
+                if (e.keyCode == 13) {
+                    $('#send-msg').trigger('click');
+                }
+            });
+        },
+        ini: function() {
+            var self = this;
+            self.ws_init();
+            self.bind_events();
+        }
+    };
+    $(function(){
+        client.ini();
+    });
+</script>
+</body>
+</html>

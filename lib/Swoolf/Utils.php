@@ -246,4 +246,123 @@ class Utils implements Interfaces\FacadeInterface
     public static function dateAdd($d, $add) {
         return date('Y-m-d', strtotime($d.' '.$add.' days'));
     }
+
+
+    /**
+     * 改变进程的用户ID
+     * @param $user
+     */
+    static function changeUser($user) {
+        if (!function_exists('posix_getpwnam')) {
+            trigger_error(__METHOD__ . ": require posix extension.");
+            return;
+        }
+        $user = posix_getpwnam($user);
+        if ($user) {
+            posix_setuid($user['uid']);
+            posix_setgid($user['gid']);
+        }
+    }
+
+    static function setProcessName($name) {
+        if (function_exists('cli_set_process_title')) {
+            cli_set_process_title($name);
+        } else if (function_exists('swoole_set_process_name')) {
+            swoole_set_process_name($name);
+        } else {
+            trigger_error(__METHOD__ . " failed. require cli_set_process_title or swoole_set_process_name.");
+        }
+    }
+
+    /**
+     * 全角转半角
+     *
+     * @param	string  $str    原字符串
+     * @return  string  $str    转换后的字符串
+     */
+    static function sbc2abc($str) {
+        $f = array ('　', '０', '１', '２', '３', '４', '５', '６', '７', '８', '９', 'ａ', 'ｂ', 'ｃ', 'ｄ', 'ｅ', 'ｆ', 'ｇ', 'ｈ', 'ｉ', 'ｊ', 'ｋ', 'ｌ', 'ｍ', 'ｎ', 'ｏ', 'ｐ', 'ｑ', 'ｒ', 'ｓ', 'ｔ', 'ｕ', 'ｖ', 'ｗ', 'ｘ', 'ｙ', 'ｚ', 'Ａ', 'Ｂ', 'Ｃ', 'Ｄ', 'Ｅ', 'Ｆ', 'Ｇ', 'Ｈ', 'Ｉ', 'Ｊ', 'Ｋ', 'Ｌ', 'Ｍ', 'Ｎ', 'Ｏ', 'Ｐ', 'Ｑ', 'Ｒ', 'Ｓ', 'Ｔ', 'Ｕ', 'Ｖ', 'Ｗ', 'Ｘ', 'Ｙ', 'Ｚ', '．', '－', '＿', '＠' );
+        $t = array (' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', '-', '_', '@' );
+        $str = str_replace ( $f, $t, $str );
+        return $str;
+    }
+
+    /**
+     * 微信表情处理
+     * @param $str
+     * @param string $method
+     * @return null|string|string[]
+     */
+    static function uicode_z($str,$method='en') {
+        if($method=='en'){
+            return preg_replace_callback('/[\xf0-\xf7].{3}/',function($r){return '@E'.base64_encode($r[0]);},$str);
+        }else{
+            return preg_replace_callback('/@E(.{6}==)/', function($r){return base64_decode($r[1]);},$str);
+        }
+    }
+
+    /**
+     * Parses INI file adding extends functionality via ":base" postfix on namespace.
+     *
+     * @param string $filename
+     * @return array
+     */
+    static function parseInFile($filename) {
+        $p_ini = parse_ini_file($filename, true);
+        $config = array();
+        foreach($p_ini as $namespace => $properties){
+            if (strpos($namespace, ':') > 0) {
+                list($name, $extends) = explode(':', $namespace);
+            } else {
+                $name = $namespace;
+                $extends = null;
+            }
+            $name = trim($name);
+            $extends = trim($extends);
+            // create namespace if necessary
+            if(!isset($config[$name])) $config[$name] = array();
+            // inherit base namespace
+            if(isset($p_ini[$extends])){
+                foreach($p_ini[$extends] as $prop => $val)
+                    $config[$name][$prop] = $val;
+            }
+            // overwrite / set current namespace values
+            foreach($properties as $prop => $val){
+                $config[$name][$prop] = $val;
+            }
+        }
+        $ret = [];
+        foreach ($config as $name=>$props) {
+            $group = [];
+            foreach ($props as $k=>$v) {
+                $group = self::arrayExtend($group, self::parseKeyValue($k, $v));
+            }
+            $ret[$name] = $group;
+        }
+        return $ret;
+    }
+
+    static function parseKeyValue($key, $value) {
+        $ret = null;
+        if (strpos($key, '.') > 0) {
+            list($k1, $k2) = explode('.', $key, 2);
+            $ret[$k1] = self::parseKeyValue($k2, $value);
+        } else {
+            $ret[$key] = $value;
+        }
+        return $ret;
+    }
+
+    static function arrayExtend($arr1, $arr2) {
+        $ret = [];
+        foreach ($arr1 as $k=>$v) {
+            if(isset($arr2[$k])) {
+                $ret[$k] = self::arrayExtend($v, $arr2[$k]);
+                unset($arr2[$k]);
+            } else {
+                $ret[$k] = $v;
+            }
+        }
+        return array_merge($ret, $arr2);
+    }
 }
