@@ -2,17 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>WS TEST</title>
+    <title>WS MSGPACK TEST</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <link href="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
     <script src="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/js/bootstrap.min.js"></script>
     <style type="text/css" rel="stylesheet">
-        #result p{padding: 15px; margin: 2px; line-height: 28px;}
+        #result p{margin: 5px; line-height: 24px;}
+        #result p span{
+            max-width: 60%; display: inline-block; padding: 5px 20px; border: #4d4d4d; border-radius: 10px;
+        }
+        #result p.other{
+            text-align: left;
+        }
+        #result p.me{
+            text-align: right;
+        }
     </style>
 </head>
 <body>
 <div class="container">
+    <h2>MSG PACK</h2>
     <div class="form-inline" style="margin: 10px 0;">
         <div class="form-group">
             <label for="msg-inp">Message</label>
@@ -28,6 +38,7 @@
         ws_init: function() {
             var self = this;
             this.ws = new WebSocket("ws://192.168.1.27:8907");
+            // this.ws.binaryType = 'blob';
             this.ws.onopen = function(evt) {
                 console.log(evt);
             }
@@ -43,18 +54,33 @@
             this.ws_open = true;
         },
         wsMessage: function(evt) {
-            this.insertMsg(evt.data, false);
+            var self = this;
+            msg_pack.unpack(evt.data, function(data) {
+                self.insertMsg(data, false);
+            });
         },
         wsClose: function(evt) {
             console.log('Connection closed.');
         },
-        sendMsg: function(msg) {
-            this.ws.send(msg);
+        sendMsg: function(text) {
+            var self = this;
+            var msg = {
+                msg_id: 1001,
+                time: new Date().toLocaleTimeString(),
+                content: text,
+            }
+            msg_pack.pack(msg, function(buf) {
+                self.ws.send(buf);
+            });
             this.insertMsg(msg, true);
         },
         insertMsg: function(msg, flag) {
-            var cls = flag ? 'bg-primary' : 'bg-success';
-            $('#result').append('<p class="'+ cls +'">'+ msg + '</p>');
+            if (flag) {
+                var _p = '<p class="me"><span class="bg-primary">['+msg.time+']'+ msg.content + '</span></p>';
+            } else {
+                var _p = '<p class="other"><span class="bg-success">['+msg.time+']'+ msg.content + '</span></p>';
+            }
+            $('#result').prepend(_p);
         },
         bind_events: function() {
             var self = this;
@@ -75,6 +101,37 @@
             var self = this;
             self.ws_init();
             self.bind_events();
+        }
+    };
+    var msg_pack = {
+        pack: function(data, cb) {
+            $.post({
+                url: '/msgpack/pack',
+                dataType: 'text',
+                data: 'data='+JSON.stringify(data),
+                success: function(res) {
+                    console.log(res);
+                    cb(res);
+                },
+                error: function(e) {
+                    alert('msg pack error:'+e)
+                }
+            })
+        },
+        unpack: function (buf, cb) {
+            console.log(buf.toString());
+            $.post({
+                url: '/msgpack/unpack',
+                data: 'buf=' + buf,
+                dataType: 'JSON',
+                success: function(res) {
+                    console.log(res);
+                    cb(res);
+                },
+                error: function(e) {
+                    alert('unpack error:'+e)
+                }
+            })
         }
     };
     $(function(){

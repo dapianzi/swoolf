@@ -13,7 +13,7 @@ use Throwable;
 class App
 {
 
-    protected static $INSTANCE = NULL;
+    protected static $INSTANCE = [];
 
     public $conf = NULL;
     /*
@@ -59,7 +59,7 @@ class App
         $this->facade::reg('event', __NAMESPACE__.'\Event');
         $this->facade::reg('loader', __NAMESPACE__.'\Loader');
 
-        self::$INSTANCE = $this;
+        self::$INSTANCE[get_called_class()] = $this;
     }
 
     public function parseIni($file) {
@@ -224,8 +224,17 @@ class App
     }
 
     public function onWSMessage($server, $frame) {
-        Log::log(sprintf('Receive from client[%d]: %s,opcode: %s, fin: %s', $frame->fd, $frame->data, $frame->opcode, $frame->finish));
-        $server->push($frame->fd, 'This is server: '.$frame->data);
+//        Log::log(sprintf('Receive from client[%d]: %s,opcode: %s, fin: %s', $frame->fd, $frame->data, $frame->opcode, $frame->finish));
+//        $server->push($frame->fd, 'This is server: '.$frame->data);
+        foreach ($server->connections as $fd) {
+            if ($fd == $frame->fd) {
+                continue;
+            }
+            $info = $server->connection_info($fd);
+            if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
+                $server->push($fd, '['.$frame->fd.']:'.$frame->data);
+            }
+        }
     }
 
     /************************ tcp socket ************************/
@@ -355,11 +364,12 @@ class App
      * @return null|App
      */
     public static function getInstance() {
-        if (is_null(self::$INSTANCE)) {
+        $cls = get_called_class();
+        if (!isset(self::$INSTANCE[$cls])) {
             $argv = func_get_args();
-            self::$INSTANCE = new App($argv[0]);
+            self::$INSTANCE[$cls] = new $cls($argv[0]);
         }
-        return self::$INSTANCE;
+        return self::$INSTANCE[$cls];
     }
 
 }

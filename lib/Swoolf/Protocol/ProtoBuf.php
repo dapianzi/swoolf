@@ -6,7 +6,7 @@
  * Time: 16:24
  */
 
-namespace \Swoolf\Protocol;
+namespace Swoolf\Protocol;
 
 use \Swoolf;
 

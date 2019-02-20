@@ -9,7 +9,7 @@ namespace Swoolf\Protocol;
 
 use \Swoolf;
 
-class JSON implements Interfaces\ProtocolInterface
+class JSON implements Swoolf\Interfaces\ProtocolInterface
 {
 
     public $msg_key = 'msg_id';

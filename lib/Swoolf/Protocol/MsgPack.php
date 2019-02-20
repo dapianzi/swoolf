@@ -6,7 +6,7 @@
  * Time: 16:24
  */
 
-namespace \Swoolf\Protocol;
+namespace Swoolf\Protocol;
 
 use \Swoolf;
 
@@ -16,8 +16,8 @@ class MsgPack implements Swoolf\Interfaces\ProtocolInterface
 
     public function __construct($key='')
     {
-        if (!function_exists('msgpack')) {
-            throw new Exception('Use msgpack protocol requied msgpack extension. Check "msgpack.so" exists in your ini file.');
+        if (!function_exists('msgpack_pack')) {
+            throw new \Exception('Use msgpack protocol requied msgpack extension. Check "msgpack.so" exists in your ini file.');
         }
         if (!empty($key)) {
             $this->msg_key = $key;
