@@ -18,15 +18,16 @@ class myApp extends \Swoolf\App {
         $data = $this->unpack($frame->data);
         \Swoolf\Log::info($data);
         $data['fd'] = $frame->fd;
+        $data['content'] = 'echo:'.$data['content'];
         $response = $this->pack($data);
-        \Swoolf\Log::warm($response);
+//        \Swoolf\Log::warm($response);
+//        $server->push($fd, $response);
         foreach ($server->connections as $fd) {
             if ($fd == $frame->fd) {
                 continue;
             }
             $info = $server->connection_info($fd);
             if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
-//                $server->push($fd, $this->pack($data));
                 $server->push($fd, $response);
             }
         }
@@ -43,7 +44,8 @@ class myApp extends \Swoolf\App {
          * msgpack
          */
         $protocol = new Swoolf\Protocol\MsgPack();
-        return base64_encode($protocol->encode(1002, $data));
+//        return base64_encode($protocol->encode(1002, $data));
+        return $protocol->encode(1002, $data);
         /*
          * protobuf
          */
@@ -58,7 +60,7 @@ class myApp extends \Swoolf\App {
         /*
          * msgpack
          */
-        $buf = base64_decode($buf);
+//        $buf = base64_decode($buf);
         $protocol = new Swoolf\Protocol\MsgPack();
 
         /*
