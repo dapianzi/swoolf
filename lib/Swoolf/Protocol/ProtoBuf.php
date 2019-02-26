@@ -21,17 +21,22 @@ class ProtoBuf implements Swoolf\Interfaces\ProtocolInterface
         $data = unpack('Nmsgid', $buf);
         $msg_id = $data['msgid'];
         $body = unpack('a*', $buf, 4);
+        \Swoolf\Log::info($body);
         $proto = new \Swoolf\Protocol\ProtoBufMessage($msg_id);
         if (!$proto) {
 //            $this->err = 'No msg id matched.';
+            \Swoolf\Log::err('unknow message id '.$msg_id);
             return FALSE;
         }
         try {
-            $msg_obj = new $proto->getProto();
+
+            $msg_obj = $proto->getProto();
+            // TODO user swoole buffer
             $msg_obj->mergeFromString(pack('a*', $body[1]));
         } catch (\Exception $e) {
-//            $this->err = $e->getMessage();
+            \Swoolf\Log::err($e->getMessage());
             return FALSE;
+//            throw $e;
             // handle invalid msg
 //            throw new MessageParseException('Invalid message');
         }
@@ -45,9 +50,14 @@ class ProtoBuf implements Swoolf\Interfaces\ProtocolInterface
 //            $this->err = 'No msg id matched.';
             return FALSE;
         }
-        $msg_obj = new $proto->getProto();
-        $msg_obj->mergeFromArray($data);
+        $msg_obj = $proto->getProto($data);
+        if ($data) {
+//            $msg_obj->mergeFromJsonString(json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+//            $msg_obj->mergeFromJsonString(json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+        }
+
         $body = $msg_obj->serializeToString();
+        // TODO user swoole buffer
         return pack('N', $msg_id) . $body;
     }
 }

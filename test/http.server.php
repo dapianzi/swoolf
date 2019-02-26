@@ -18,15 +18,15 @@ class myHttpApp extends \Swoolf\App {
                 break;
             }
             case '/msgpack': {
-                $response->end(file_get_contents('./ws.msgpack.test.html'));
+                $response->end(file_get_contents(APP_PATH . '/test/ws.msgpack.test.html'));
                 break;
             }
             case '/json': {
-                $response->end(file_get_contents('./ws.json.test.html'));
+                $response->end(file_get_contents(APP_PATH . '/test/ws.json.test.html'));
                 break;
             }
             case '/protobuf': {
-                $response->end(file_get_contents('./ws.protobuf.test.html'));
+                $response->end(file_get_contents(APP_PATH . '/test/ws.protobuf.test.html'));
                 break;
             }
             case '/msgpack/pack': {
@@ -44,7 +44,7 @@ class myHttpApp extends \Swoolf\App {
                 break;
             }
             default: {
-                $response->end(file_get_contents('./ws.test.html'));
+                $response->end(file_get_contents(APP_PATH . '/test/ws.test.html'));
             }
         }
     }
@@ -55,9 +55,12 @@ $app->serverConf([
     'name' => 'Test-http',
     'port' => 8905,
     'settings' => [
-        'daemonize' => 0,
+        'daemonize' => 1,
         'log_file' => APP_PATH . '/test/http.log',
         'pid_file' => APP_PATH . '/test/http.pid',
+        'upload_tmp_dir' => APP_PATH . '/temp/',
+        'document_root' => APP_PATH . '/public/',
+        "enable_static_handler"=>true,
     ]
 ]);
 $app->run();

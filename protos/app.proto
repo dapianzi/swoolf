@@ -1,0 +1,84 @@
+syntax =  "proto3";
+package Proto;
+
+message MessageBody {
+    uint32 msgID = 1;
+    MessageType msgType = 2;
+    string content = 3;
+    uint32 stamp = 4;
+    uint32 from = 5;
+}
+message Role {
+    uint32 id = 1;
+    string name = 2;
+    string icon = 3;
+}
+enum MessageType {
+    TEXT = 0;
+    BLOB = 1;
+    NOTIFY = 3;
+}
+enum OpCode {
+    SUCCESS = 0;
+    ERR = 1;
+}
+
+
+// 1001
+message RequestLogin {
+    string username = 1;
+    string password = 2;
+    string deviceid = 3;
+    int32 platform = 4;
+}
+// 1002
+message ResponseLogin {
+    OpCode op = 1;
+    uint32 id = 2;
+    string token = 3;
+}
+// 1003
+message RequestGetFriendList {}
+// 1004
+message ResponseGetFriendList {
+    OpCode op = 1;
+    repeated Role list = 2;
+}
+
+// 1005
+message RequestLogout{
+    uint32 ts = 1;
+}
+// 1006
+message ResponseLogout{
+    OpCode op = 1;
+}
+
+// 1007
+message RequestSendMessage {
+    uint32 ChatId = 1;
+    MessageBody msg = 2;
+}
+// 1008
+message ResponseSendMessage {
+    OpCode op = 1;
+}
+
+// 1010
+message ResponseReceiveMessage {
+    uint32 ChatId = 1;
+    MessageBody msg = 2;
+}
+// 1011
+message RequestGetHistoryMessage {
+    uint32 ChatId = 1;
+    uint32 stamp = 2;
+}
+// 1012
+message ResponseGetHistoryMessage {
+    OpCode op = 1;
+    repeated MessageBody msg = 2;
+}
+
+// 1014
+//message Response {}

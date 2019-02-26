@@ -7,39 +7,125 @@
     <link href="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
     <script src="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/js/bootstrap.min.js"></script>
-    <style type="text/css" rel="stylesheet">
-        #result p{margin: 5px; line-height: 24px;}
-        #result p span{
-            max-width: 60%; display: inline-block; padding: 5px 20px; border: #4d4d4d; border-radius: 10px;
-        }
-        #result p.other{
-            text-align: left;
-        }
-        #result p.me{
-            text-align: right;
-        }
-    </style>
 </head>
+<style type="text/css">
+    html,body{height: 100%;background-color: #ffffff;}
+    #page {height:100%; width: 100%; max-width: 480px; margin: 0 auto;}
+    /*#chat {display: flex;flex-direction:column; height: 100%;}*/
+    /*#message-header{height:40px; line-height: 40px;font-size: 28px;padding-left: 10px;}*/
+    /*#message-container{flex: 1; padding: 10px; background-color: #FFFFFF; overflow-y: scroll;}*/
+    /*#message-sender{ padding: 10px;}*/
+    #chat {display: grid; grid-template-rows: 40px 1fr 60px; height: 100%;}
+    #message-header{height:40px; line-height: 40px;font-size: 28px;padding-left: 10px;}
+    #message-container{padding: 10px; background-color: #ececec; overflow-y: scroll;}
+    #message-sender{ height:40px; padding: 10px;}
+    .chat-container.current{display:block;}
+    .back-btn{display:block; float:left; height:40px; width:0; margin-top:10px; position: relative;}
+    .back-btn::before {content:''; display:block; position: absolute; top:6px; left:16px; width:24px; height:24px;
+        border-top:4px solid #FFFFFF; border-left:4px solid #FFFFFF; transform: rotate(-45deg); border-radius: 4px;}
+
+    .message{}
+    .message::after{content:''; display: block; height:0; width:100%; clear: both;}
+    .avatar{width:36px; height:36px;  margin:5px; border-radius: 5px; border: 2px solid #DEDEDE; background: #282C34;
+        background-repeat: no-repeat; background-size: contain; background-position: center center;}
+    .message-content{border-radius: 6px; margin:5px; line-height: 28px; min-height:28px; padding:2px 10px; font-size:
+            14px; position:relative; max-width:60%;}
+    .message-other .avatar{float:left;}
+    .message-other .message-content{float:left; background: #FFFFFF; margin-left:10px;}
+    .message-other .message-content::after{content:''; display: block; width:0px; height:0px;
+        border-right: 8px white solid;
+        border-top: 6px solid rgba(0,0,0,0);
+        border-bottom: 6px solid rgba(0,0,0,0);
+        left:-8px; top:8px; position: absolute;
+    }
+    .message-mine .avatar{float:right;}
+    .message-mine .message-content{float:right; background: lightgreen; margin-right:10px;}
+    .message-mine .message-content::after{content:''; display: block; width:0px; height:0px;
+        border-left: 8px lightgreen solid;
+        border-top: 6px solid rgba(0,0,0,0);
+        border-bottom: 6px solid rgba(0,0,0,0);
+        right:-8px; top:8px; position: absolute;
+    }
+</style>
 <body>
-<div class="container">
-    <h2>PROTOBUF</h2>
-    <div class="form-inline" style="margin: 10px 0;">
-        <div class="form-group">
-            <label for="msg-inp">Message</label>
-            <input type="text" class="form-control" id="msg-inp" placeholder="text" />
+<div id="page">
+    <div id="chat">
+        <!--<div class="left-menu col-md-3">-->
+            <!--&lt;!&ndash;<span class="back-btn"></span>&ndash;&gt;-->
+            <!--<div class="title">Dapianzi</div>-->
+            <!--<ul class="list-group">-->
+                <!--<{foreach $users as $u}>-->
+                <!--<li class="list-group-item"><a href="javascript:void(0);" class="contact" data-uid="<{$u.id}>">-->
+                    <!--<span class="avatar" style="display:inline-block;vertical-align:middle;background-image: url(<{$BASE_URI}><{$u.avatar}>);"></span><{$u.username}>-->
+                <!--</a></li>-->
+                <!--<{/foreach}>-->
+            <!--</ul>-->
+        <!--</div>-->
+        <div id="message-header">PROTOBUF </div>
+        <div id="message-container"></div>
+        <div id="message-sender">
+            <div class="input-group">
+                <input type="text" class="form-control" id="msg-text" placeholder="Text...">
+                <span class="btn-group">
+                    <button class="btn btn-primary" id="send-emoji" type="button">^.^</button>
+                    <button class="btn btn-success" id="send-text" type="button">Go!</button>
+                </span>
+            </div>
         </div>
-        <button type="button" id="send-msg" class="btn btn-primary">Send</button>
     </div>
-    <div id="result"></div>
 </div>
-<script>
+<script type="text/javascript" src="/protobuf.min.js"></script>
+<script type="text/javascript">
+    var ProBuf = {
+        root: null,
+        ver: 1,
+        writeBuf: function (msgid, buf) {
+            var self = this;
+            var length = buf.length;
+            console.log(buf);
+            var buffer = new ArrayBuffer(buf.length + 4);
+            var dv = new DataView(buffer);
+            dv.setUint32(0, msgid, false);
+            for (let i=0;i<buf.length;i++) {
+                dv.setInt8(4+i, buf[i]);
+            }
+            return buffer;
+        },
+        readBuf: function (buf) {
+            var dv = new DataView(buf);
+            var msgid = dv.getUint32(0, false);
+            var buf = new Uint8Array(buf, 4);
+            return [msgid, buf];
+        },
+        Request_Message: function Request_Message(msg, req, callback) {
+            var RequestMessage = this.root.lookupType("Proto."+req);
+            var errMsg = RequestMessage.verify(msg);
+            if (errMsg)
+                throw Error(errMsg);
+            var message = RequestMessage.fromObject(msg); // or use .fromObject if conversion is necessary
+            var buffer = RequestMessage.encode(message).finish();
+            callback(buffer);
+        },
+        Response_Message: function (buf, res, callback) {
+            var ResponseMessage = this.root.lookupType("Proto."+res);
+            var message = ResponseMessage.decode(buf);
+            var object = ResponseMessage.toObject(message, {
+                longs: String,
+                enums: String,
+                bytes: String,
+            });
+            callback(object);
+        }
+    };
     var client = {
         ws: null,
+        id: 0,
         ws_init: function() {
             var self = this;
             this.ws = new WebSocket("ws://192.168.1.27:8907");
+            this.ws.binaryType = 'arraybuffer';
             this.ws.onopen = function(evt) {
-                console.log(evt);
+                self.wsOpen(evt);
             }
             this.ws.onmessage = function(evt) {
                 self.wsMessage(evt);
@@ -49,86 +135,172 @@
             }
         },
         wsOpen: function(evt) {
-            //console.log(evt);
+            console.log('Connect to server ok.');
+            var self = this;
             this.ws_open = true;
+            var account = 'dapianzi';
+            var password = '123';
+            ProBuf.Request_Message({
+                username: account,
+                password: password,
+                deviceid: navigator.userAgent.substr(0, 32),
+                platform: self.getPlatform(),
+            }, 'RequestLogin', function(buf){
+                self.ws.send(ProBuf.writeBuf(1001, buf));
+            });
         },
         wsMessage: function(evt) {
-            msg_pack.unpack(evt.data, function(data) {
-                this.insertMsg(data, false);
-            });
+            var self = this;
+            var [msg_id, buf] = ProBuf.readBuf(evt.data);
+            var res_proto = {
+                1002: 'ResponseLogin',
+                1004: 'ResponseGetFriendList',
+                1006: 'ResponseLogout',
+                1008: 'ResponseSendMessage',
+                1010: 'ResponseReceiveMessage',
+                1012: 'ResponseGetHistoryMessage',
+            }[msg_id];
+
+            ProBuf.Response_Message(buf, res_proto, function(data) {
+                console.log(data);
+                switch (msg_id) {
+                    case 1002:
+                        console.log(data.token);
+                        self.id = data.id;
+                        // alert('可以愉快的聊天了');
+                        break;
+                    case 1004:
+                        console.log(data);
+                        break;
+                    case 1006:
+                        console.log('Logout success. connection closing..');
+                        break;
+                    case 1008:
+                        console.log('message send success');
+                        break;
+                    case 1010:
+                        // receive message
+                        self.insertMsg(data.msg, false);
+                        break;
+                    case 1012:
+                        for(var i in data.msg) {
+                            self.insertMsg(data.msg[i], false);
+                        }
+                        break;
+                    default:
+                        console.err('unresolved msg:' + msg_id);
+                        return ;
+                }
+            })
+
+
         },
         wsClose: function(evt) {
+            var self = this;
             console.log('Connection closed.');
+            if (confirm('你掉线了，马上重连？')) {
+                self.ws_init();
+            }
         },
-        sendMsg: function(text) {
+        sendMsg: function(msg) {
+            var self = this;
+            ProBuf.Request_Message({ChatId: 1, msg: msg}, 'RequestSendMessage', function(buf){
+                var res = self.ws.send(ProBuf.writeBuf(1007, buf));
+                console.log(res);
+            });
+            self.insertMsg(msg, true);
+        },
+        sendText: function(text) {
             var self = this;
             var msg = {
-                msg_id: 1001,
-                time: new Date().toLocaleTimeString(),
+                msgID: Math.floor(new Date().getTime()/1000),
+                msgType: 0,
+                stamp: Math.floor(new Date().getTime()/1000),
                 content: text,
-            }
-            msg_pack.pack(msg, function(buf) {
-                self.ws.send(buf);
-            });
-            this.insertMsg(msg, true);
+                from: self.id,
+            };
+            self.sendMsg(msg);
+        },
+        sendBlob: function(blob) {
+            var self = this;
+            var msg = {
+                msgID: Math.floor(new Date().getTime()/1000),
+                msgType: 1,
+                stamp: Math.floor(new Date().getTime()/1000),
+                content: blob,
+                from: self.id,
+            };
+            self.sendMsg(msg);
+        },
+        sendPic: function(src) {
+            var self = this;
+            var msg = {
+                msgID: Math.floor(new Date().getTime()/1000),
+                msgType: 2,
+                stamp: Math.floor(new Date().getTime()/1000),
+                content: src,
+                from: self.id,
+            };
+            self.sendMsg(msg);
         },
         insertMsg: function(msg, flag) {
-            if (flag) {
-                var _p = '<p class="me"><span class="bg-primary">['+msg.time+']'+ msg.content + '</span></p>';
-            } else {
-                var _p = '<p class="other"><span class="bg-success">['+msg.time+']'+ msg.content + '</span></p>';
+            var self = this;
+            var cls = flag ? 'mine' : 'other';
+            var avatar = flag ? (self.id%9+1) : (msg.from%9+1);
+            console.log(msg);
+            if (msg.msgType == 0 || !msg.msgType) {
+                var _html = '<div class="message message-'+ cls +'">' +
+                    '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
+                    '<div class="message-content message-text">' + msg.content + '</div></div>';
+            } else if (msg.msgType == 1) {
+                var _html = '<div class="message message-'+ cls +'">' +
+                    '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
+                    '<div class="message-content message-text">' + msg.content + '</div></div>';
+            } else if (msg.msgType == 2) {
+                var _html = '<div class="message message-'+ cls +'">' +
+                    '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
+                    '<div class="message-content message-text"><img src="' + msg.content + '"/></div></div>';
             }
-            $('#result').prepend(_p);
+            $('#message-container').append(_html);
+            var _height = $('#message-container .message:last').offset().top - $('#message-container .message:first').offset().top;
+            $('#message-container').scrollTop(_height);
         },
         bind_events: function() {
             var self = this;
-            $('#send-msg').on('click', function() {
-                var text = $('#msg-inp').val();
+            $('#send-text').on('click', function() {
+                var text = $('#msg-text').val();
                 if ('' !== text) {
-                    self.sendMsg(text);
-                    $('#msg-inp').val('').focus();
+                    self.sendText(text);
+                    $('#msg-text').val('').focus();
                 }
             });
-            $('#msg-inp').on('keyup', function(e) {
+            $('#msg-text').on('keyup', function(e) {
                 if (e.keyCode == 13) {
-                    $('#send-msg').trigger('click');
+                    $('#send-text').trigger('click');
                 }
             });
+        },
+        getPlatform: function() {
+            if (navigator.userAgent.toLocaleLowerCase().indexOf('mac') > 0) {
+                return 3;
+            } else if (navigator.userAgent.toLocaleLowerCase().indexOf('android') > 0) {
+                return 2;
+            } else {
+                return 1;
+            }
         },
         ini: function() {
             var self = this;
-            self.ws_init();
+            protobuf.load('/app.proto', function(err, root) {
+                if (err) {
+                    console.error(err);
+                    return false;
+                }
+                console.log(root);
+                ProBuf.root = root;
+                self.ws_init();
+            });
             self.bind_events();
-        }
-    };
-    var msg_pack = {
-        pack: function(data, cb) {
-            $.post({
-                url: '/msgpack/pack',
-                dataType: 'text',
-                data: 'data='+JSON.stringify(data),
-                success: function(res) {
-                    console.log(res);
-                    callback(res);
-                },
-                error: function(e) {
-                    alert('msg pack error:'+e)
-                }
-            })
-        },
-        unpack: function (buf, cb) {
-            $.post({
-                url: '/msgpack/unpack',
-                data: 'buf=' + buf,
-                dataType: 'JSON',
-                success: function(res) {
-                    console.log(res);
-                    callback(res);
-                },
-                error: function(e) {
-                    alert('unpack error:'+e)
-                }
-            })
         }
     };
     $(function(){

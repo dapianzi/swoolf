@@ -28,7 +28,7 @@ class App
     const SERVER_TYPE_WS = 1;
     const SERVER_TYPE_TCP = 2;
     const SERVER_TYPE_HTTP = 3;
-    protected $server = NULL;
+    public $server = NULL;
     protected $serverType = self::SERVER_TYPE_WS;
     protected $serverName = 'Swoolf-server';
     protected $serverHost = '0.0.0.0';
@@ -36,6 +36,8 @@ class App
     protected $serverMode = SWOOLE_PROCESS;
     protected $serverSettings = [];
 
+    // swoole table
+    public $table;
 
     public function __construct($ini_file)
     {
@@ -54,11 +56,18 @@ class App
             $this->serverConf($this->conf['server']);
         }
         // register facades
+        $this->facade::reg('loader', __NAMESPACE__.'\Loader');
         $this->facade::reg('log', __NAMESPACE__.'\Log');
         $this->facade::reg('utils', __NAMESPACE__.'\Utils');
         $this->facade::reg('event', __NAMESPACE__.'\Event');
-        $this->facade::reg('loader', __NAMESPACE__.'\Loader');
+//        $this->facade::reg('table', __NAMESPACE__.'\Table');
 
+        // init table
+        $this->table = new \Swoole\Table(1024);
+        $this->table->column('id', \Swoole\Table::TYPE_INT, 4);       //1,2,4,8
+        $this->table->column('name', \Swoole\Table::TYPE_STRING, 64);
+        $this->table->column('icon', \Swoole\Table::TYPE_STRING, 255);
+        $this->table->create();
         self::$INSTANCE[get_called_class()] = $this;
     }
 

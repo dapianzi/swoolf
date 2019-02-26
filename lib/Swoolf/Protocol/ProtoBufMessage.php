@@ -12,45 +12,36 @@ namespace Swoolf\Protocol;
 class ProtoBufMessage
 {
 
-    public $msg = null;
+    public $msg = 0;
+    public $proto = null;
     public static $msg_proto = [];
 
     public function __construct($msg_id){
         if (isset(self::$msg_proto[$msg_id])) {
-            $this->msg = self::$msg_proto[$msg_id];
+            $this->msg = $msg_id;
+            $this->proto = self::$msg_proto[$msg_id];
         }
     }
 
     public static function setProto($msg_proto) {
-        foreach ($msg_proto as $v) {
-            self::$msg_proto[$v['id']] = $v;
-            if (isset($v['response_id'])) {
-                self::$msg_proto[$v['response_id']] = $v['response_proto'];
-            }
+        foreach ($msg_proto as $k=>$v) {
+            self::$msg_proto[$k] = $v;
+//            if (isset($v['response_id'])) {
+//                self::$msg_proto[$v['response_id']] = $v['response_proto'];
+//            }
         }
     }
 
     public function getId() {
-        if(!is_null($this->msg)) {
-            return $this->msg['id'];
+        if(!$this->msg) {
+            return $this->msg;
         }
     }
 
-    public function getProto() {
-        if(!is_null($this->msg)) {
-            return $this->msg['proto'];
-        }
-    }
-
-    public function getResponseMessageId(){
-        if(!is_null($this->msg)) {
-            return $this->msg['response_id'];
-        }
-    }
-
-    public function getResponseMessageProto(){
-        if(!is_null($this->msg)) {
-            return $this->msg['response_proto'];
+    public function getProto($data=NULL) {
+        if(!empty($this->proto)) {
+            $cls = '\\Proto\\'.$this->proto;
+            return new $cls($data);
         }
     }
 }
