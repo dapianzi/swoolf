@@ -136,12 +136,13 @@ class TestController {
         $this->user = $this->app->table->get($this->fd);
     }
 
-    public function response($fd, $msg_id, $data=[]) {
+    public function response($fd, $msg_id, $data=null) {
         return $this->app->server->push($fd, myApp::pack($msg_id, $data), WEBSOCKET_OPCODE_BINARY);
     }
 
     public function RequestLogin() {
-        if ($this->data['username'] == 'dapianzi' && '40bd001563085fc35165329ea1ff5c5ecbdbbeef' == $this->app->utils::encryptStr($this->data['password'])) {
+        if ($this->data->getUsername() == 'dapianzi' &&
+            '40bd001563085fc35165329ea1ff5c5ecbdbbeef' == $this->app->utils::encryptStr($this->data->getPassword())) {
             $this->response($this->fd, 1002, ['id'=>$this->fd,'token' => $this->app->utils::randomStr(32)]);
             // init login
             $this->app->table->set($this->fd, [
@@ -173,23 +174,60 @@ class TestController {
     }
 
     public function RequestSendMessage() {
-        $this->response($this->fd, 1008);
+        $this->response($this->fd, 1008, [
+            'msgID' => $this->data->getMsg()->getMsgID()
+        ]);
         // save message to db;
         // broadcast message
         // todo should done in a task
-        $this->app->log::ok($this->data);
-        $response = myApp::pack(1010, [
-            'ChatId' => $this->data['ChatId'],
-            'stamp' => time(),
-            'msg' => new \Proto\MessageBody($this->data['msg']),
-        ]);
-        foreach ($this->app->server->connections as $fd) {
-            if ($fd == $this->fd) {
-                continue;
+        $this->app->log::ok($this->req->msg_id);
+        /*
+         * text msg
+         */
+        if ($this->data->getMsg()->getMsgType() == 0) {
+            $response = myApp::pack(1010, [
+                'ChatId' => $this->data->getChatId(),
+                'stamp' => time(),
+                'msg' => $this->data->getMsg(),
+            ]);
+            foreach ($this->app->server->connections as $fd) {
+                if ($fd == $this->fd) {
+                    continue;
+                }
+                $info = $this->app->server->connection_info($fd);
+                if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
+                    $this->app->server->push($fd, $response, WEBSOCKET_OPCODE_BINARY);
+                }
             }
-            $info = $this->app->server->connection_info($fd);
-            if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
-                $this->app->server->push($fd, $response, WEBSOCKET_OPCODE_BINARY);
+        }
+        /*
+         * blob msg
+         */
+        else if ($this->data->getMsg()->getMsgType() == 1) {
+            $response = myApp::pack(1010, [
+                'ChatId' => $this->data->getChatId(),
+                'stamp' => time(),
+                'msg' => $this->data->getMsg(),
+            ]);
+//            $response = myApp::pack(1010, [
+//                'ChatId' => $this->data->['ChatId'],
+//                'stamp' => time(),
+//                'msg' => new \Proto\MessageBody([
+//                    'msgID' => $this->data['msg']['msgID'],
+//                    'msgType' => $this->data['msg']['msgType'],
+//                    'content' => $this->data['msg']['content'],
+//                    'stamp' => $this->data['msg']['stamp'],
+//                    'from' => $this->data['msg']['from'],
+//                ]),
+//            ]);
+            foreach ($this->app->server->connections as $fd) {
+                if ($fd == $this->fd) {
+                    continue;
+                }
+                $info = $this->app->server->connection_info($fd);
+                if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
+                    $this->app->server->push($fd, $response, WEBSOCKET_OPCODE_BINARY);
+                }
             }
         }
     }

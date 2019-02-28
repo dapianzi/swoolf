@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <title>WS PROTOBUF TEST</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <link href="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/css/bootstrap.min.css" rel="stylesheet">
+    <!--<link href="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/css/bootstrap.min.css" rel="stylesheet">-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" crossorigin="anonymous">
     <script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
-    <script src="https://cdn.bootcss.com/twitter-bootstrap/4.2.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
 </head>
 <style type="text/css">
     html,body{height: 100%;background-color: #ffffff;}
@@ -46,6 +47,52 @@
         border-bottom: 6px solid rgba(0,0,0,0);
         right:-8px; top:8px; position: absolute;
     }
+    .message-mine.failed .message-content::before{
+        content: '!';
+        display: block;
+        width: 16px;
+        height: 16px;
+        text-align: center;
+        border-radius: 20px;
+        line-height: 16px;
+        font-size: 12px;
+        font-weight: bold;
+        font-family: auto;
+        color: #ffffff;
+        background-color: #FF5722;
+        left: -20px;
+        top: 50%;
+        position: absolute;
+        margin-top: -8px;
+    }
+    .message-mine.sending .message-content::before{
+        content: '';
+        display: block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #cdcdcd;
+        border-radius: 20px;
+        border-left: 2px solid rgba(0,0,0,0);
+        background-color: rgba(0,0,0,0);
+        left: -20px;
+        top: 50%;
+        position: absolute;
+        margin-top: -8px;
+        animation: rotate 1.5s linear infinite;
+    }
+    .message-img {
+        display:inline-block;
+        max-width: 50%;
+        padding: 10px;
+    }
+    .message-img img {
+        max-width: 100%;
+        max-height: 360px;
+    }
+    @keyframes rotate {
+        from {transform: rotate(0deg);}
+        to {transform: rotate(360deg);}
+    }
 </style>
 <body>
 <div id="page">
@@ -65,11 +112,14 @@
         <div id="message-container"></div>
         <div id="message-sender">
             <div class="input-group">
-                <input type="text" class="form-control" id="msg-text" placeholder="Text...">
-                <span class="btn-group">
-                    <button class="btn btn-primary" id="send-emoji" type="button">^.^</button>
-                    <button class="btn btn-success" id="send-text" type="button">Go!</button>
+                <span class="input-group-addon" id="send-emoji">
+                    <label>
+                    <input type="file" id="file-inp" accept="image/gif, image/jpeg, image/png" style="width:0;height:0;display: none;" />
+                    Pic
+                    </label>
                 </span>
+                <input type="text" class="form-control" id="msg-text" placeholder="Text...">
+                <span class="input-group-addon" id="send-text" >Text</span>
             </div>
         </div>
     </div>
@@ -82,7 +132,6 @@
         writeBuf: function (msgid, buf) {
             var self = this;
             var length = buf.length;
-            console.log(buf);
             var buffer = new ArrayBuffer(buf.length + 4);
             var dv = new DataView(buffer);
             dv.setUint32(0, msgid, false);
@@ -111,7 +160,7 @@
             var message = ResponseMessage.decode(buf);
             var object = ResponseMessage.toObject(message, {
                 longs: String,
-                enums: String,
+                // enums: String,
                 bytes: String,
             });
             callback(object);
@@ -120,12 +169,15 @@
     var client = {
         ws: null,
         id: 0,
-        ws_init: function() {
+        avatar: 0,
+        timer: {},
+        ws_init: function(cb) {
             var self = this;
             this.ws = new WebSocket("ws://192.168.1.27:8907");
             this.ws.binaryType = 'arraybuffer';
             this.ws.onopen = function(evt) {
                 self.wsOpen(evt);
+                if(cb) {cb();}
             }
             this.ws.onmessage = function(evt) {
                 self.wsMessage(evt);
@@ -135,7 +187,7 @@
             }
         },
         wsOpen: function(evt) {
-            console.log('Connect to server ok.');
+            console.info('Connect to server ok.');
             var self = this;
             this.ws_open = true;
             var account = 'dapianzi';
@@ -165,18 +217,20 @@
                 console.log(data);
                 switch (msg_id) {
                     case 1002:
-                        console.log(data.token);
                         self.id = data.id;
+                        self.avatar = data.id;
                         // alert('可以愉快的聊天了');
                         break;
                     case 1004:
-                        console.log(data);
                         break;
                     case 1006:
-                        console.log('Logout success. connection closing..');
+                        console.info('Logout success. connection closing..');
                         break;
                     case 1008:
-                        console.log('message send success');
+                        console.info('message send success');
+                        clearTimeout(self.timer[data.msgID]);
+                        delete self.timer[data.msgID];
+                        $('#msg-'+data.msgID).removeClass('sending');
                         break;
                     case 1010:
                         // receive message
@@ -188,16 +242,15 @@
                         }
                         break;
                     default:
-                        console.err('unresolved msg:' + msg_id);
+                        console.error('unresolved msg:' + msg_id);
                         return ;
                 }
             })
-
-
         },
         wsClose: function(evt) {
             var self = this;
-            console.log('Connection closed.');
+            console.warn('Connection closed.');
+            self.ws = null;
             if (confirm('你掉线了，马上重连？')) {
                 self.ws_init();
             }
@@ -205,8 +258,7 @@
         sendMsg: function(msg) {
             var self = this;
             ProBuf.Request_Message({ChatId: 1, msg: msg}, 'RequestSendMessage', function(buf){
-                var res = self.ws.send(ProBuf.writeBuf(1007, buf));
-                console.log(res);
+                self.ws.send(ProBuf.writeBuf(1007, buf));
             });
             self.insertMsg(msg, true);
         },
@@ -245,25 +297,33 @@
         },
         insertMsg: function(msg, flag) {
             var self = this;
-            var cls = flag ? 'mine' : 'other';
-            var avatar = flag ? (self.id%9+1) : (msg.from%9+1);
-            console.log(msg);
+            var cls = flag ? 'mine sending' : 'other';
+            var avatar = flag ? (self.avatar%9+1) : (msg.from%9+1);
             if (msg.msgType == 0 || !msg.msgType) {
-                var _html = '<div class="message message-'+ cls +'">' +
+                var _html = '<div class="message message-'+ cls +'" id="msg-'+msg.msgID+'">' +
                     '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
                     '<div class="message-content message-text">' + msg.content + '</div></div>';
             } else if (msg.msgType == 1) {
-                var _html = '<div class="message message-'+ cls +'">' +
+                var _html = '<div class="message message-'+ cls +'" id="msg-'+msg.msgID+'">' +
                     '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
-                    '<div class="message-content message-text">' + msg.content + '</div></div>';
+                    '<div class="message-content message-img"><img src="data:image/png;base64,'+window.btoa(msg.content)+'"/></div></div>';
             } else if (msg.msgType == 2) {
-                var _html = '<div class="message message-'+ cls +'">' +
+                var _html = '<div class="message message-'+ cls +'" id="msg-'+msg.msgID+'">' +
                     '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
-                    '<div class="message-content message-text"><img src="' + msg.content + '"/></div></div>';
+                    '<div class="message-content message-img"><img src="' + msg.content + '"/></div></div>';
             }
             $('#message-container').append(_html);
             var _height = $('#message-container .message:last').offset().top - $('#message-container .message:first').offset().top;
             $('#message-container').scrollTop(_height);
+            if (flag) {
+                self.waiting_response(msg.msgID);
+            }
+        },
+        waiting_response(msgID) {
+            var self = this;
+            self.timer[msgID] = setTimeout(function(){
+                $('#msg-'+msgID).removeClass('sending').addClass('failed');
+            }, 10000);
         },
         bind_events: function() {
             var self = this;
@@ -278,6 +338,46 @@
                 if (e.keyCode == 13) {
                     $('#send-text').trigger('click');
                 }
+            });
+            // 断线重连
+            $('#message-container').on('click', '.message.failed', function() {
+                $(this).removeClass('failed').addClass('sending');
+                if (!self.ws){
+                    self.ws_init(function() {
+                        // TODO 消息重发
+                        // self.sendText($(this).find('.message-content').text());
+                    });
+                } else {
+                    // TODO 消息重发
+                    // self.sendText($(this).find('.message-content').text());
+                }
+            });
+            // 发送图片
+            $('#file-inp').on('change', function(e){
+                //加载本地文件
+                var file = $(this)[0].files[0];
+                var reader = new FileReader();
+                var step = 1024 * 1024;
+                var total = file.size;
+                var cuLoaded = 0;
+                console.info("文件大小：" + file.size);
+                // reader.readAsArrayBuffer(file); //
+                reader.readAsBinaryString(file);   //返回二进制字符串
+                reader.onload = function (e) {
+                    console.log(e);
+                    self.sendBlob(reader.result)
+                }
+            });
+            // change avatar
+            $('#message-container').on('click', '.message-mine avatar', function() {
+                return false;
+                // show all pics
+                for (var i=1; i<10; i++) {
+
+                }
+                // change avatar
+                self.avatar = chose_id;
+                $('.message-mine avatar').css({'background-image': 'url(/default/avatar_'+(self.avatar%9+1)+'.jpg)'});
             });
         },
         getPlatform: function() {
@@ -296,7 +396,6 @@
                     console.error(err);
                     return false;
                 }
-                console.log(root);
                 ProBuf.root = root;
                 self.ws_init();
             });

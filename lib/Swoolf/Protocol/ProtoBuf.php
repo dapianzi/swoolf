@@ -40,8 +40,7 @@ class ProtoBuf implements Swoolf\Interfaces\ProtocolInterface
             // handle invalid msg
 //            throw new MessageParseException('Invalid message');
         }
-        return new Message($msg_id, json_decode($msg_obj->serializeToJsonString(), true));
-
+        return new Message($msg_id, $msg_obj);
     }
 
     public function encode($msg_id, $data) {
@@ -50,10 +49,13 @@ class ProtoBuf implements Swoolf\Interfaces\ProtocolInterface
 //            $this->err = 'No msg id matched.';
             return FALSE;
         }
-        $msg_obj = $proto->getProto($data);
-        if ($data) {
+        if (is_array($data)) {
+            $msg_obj = $proto->getProto($data);
 //            $msg_obj->mergeFromJsonString(json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
 //            $msg_obj->mergeFromJsonString(json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+        } else {
+            $msg_obj = $proto->getProto();
+            $msg_obj->mergeFrom($data);
         }
 
         $body = $msg_obj->serializeToString();
