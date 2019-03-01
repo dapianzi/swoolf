@@ -25,11 +25,11 @@
     .back-btn::before {content:''; display:block; position: absolute; top:6px; left:16px; width:24px; height:24px;
         border-top:4px solid #FFFFFF; border-left:4px solid #FFFFFF; transform: rotate(-45deg); border-radius: 4px;}
 
-    .message{}
+    .message{margin-top: 5px;}
     .message::after{content:''; display: block; height:0; width:100%; clear: both;}
-    .avatar{width:36px; height:36px;  margin:5px; border-radius: 5px; border: 2px solid #DEDEDE; background: #282C34;
+    .avatar{width:36px; height:36px; border-radius: 5px; border: 2px solid #DEDEDE; background: #282C34;
         background-repeat: no-repeat; background-size: contain; background-position: center center;}
-    .message-content{border-radius: 6px; margin:5px; line-height: 28px; min-height:28px; padding:2px 10px; font-size:
+    .message-content{border-radius: 6px; margin:2px; line-height: 28px; min-height:28px; padding:2px 10px; font-size:
             14px; position:relative; max-width:60%;}
     .message-other .avatar{float:left;}
     .message-other .message-content{float:left; background: #FFFFFF; margin-left:10px;}
@@ -37,7 +37,7 @@
         border-right: 8px white solid;
         border-top: 6px solid rgba(0,0,0,0);
         border-bottom: 6px solid rgba(0,0,0,0);
-        left:-8px; top:8px; position: absolute;
+        left:-6px; top:10px; position: absolute;
     }
     .message-mine .avatar{float:right;}
     .message-mine .message-content{float:right; background: lightgreen; margin-right:10px;}
@@ -45,7 +45,7 @@
         border-left: 8px lightgreen solid;
         border-top: 6px solid rgba(0,0,0,0);
         border-bottom: 6px solid rgba(0,0,0,0);
-        right:-8px; top:8px; position: absolute;
+        right:-6px; top:10px; position: absolute;
     }
     .message-mine.failed .message-content::before{
         content: '!';
@@ -93,6 +93,16 @@
         from {transform: rotate(0deg);}
         to {transform: rotate(360deg);}
     }
+    .avatar-option{
+        margin-top: 10px;
+    }
+    .avatar-option img{
+        width: 100%;
+    }
+    .avatar-option.chosen img{
+        border: 3px solid #12ba34;
+        opacity: .8;
+    }
 </style>
 <body>
 <div id="page">
@@ -108,7 +118,10 @@
                 <!--<{/foreach}>-->
             <!--</ul>-->
         <!--</div>-->
-        <div id="message-header">PROTOBUF </div>
+        <div id="message-header">PROTOBUF |
+            <a class="btn btn-xs btn-primary" id="get-users">Get Users</a> |
+            <a class="btn btn-xs btn-primary" id="logout">Logout</a>
+        </div>
         <div id="message-container"></div>
         <div id="message-sender">
             <div class="input-group">
@@ -124,6 +137,37 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="avatarChooseModal" tabindex="-1" role="dialog" aria-labelledby="avatarChooseModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="avatarChooseModalLabel">选择头像</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-xs-4 avatar-option" data-id="1"><img src="/default/avatar_1.jpg" /></div>
+                    <div class="col-xs-4 avatar-option" data-id="2"><img src="/default/avatar_2.jpg" /></div>
+                    <div class="col-xs-4 avatar-option" data-id="3"><img src="/default/avatar_3.jpg" /></div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-4 avatar-option" data-id="4"><img src="/default/avatar_4.jpg" /></div>
+                    <div class="col-xs-4 avatar-option" data-id="5"><img src="/default/avatar_5.jpg" /></div>
+                    <div class="col-xs-4 avatar-option" data-id="6"><img src="/default/avatar_6.jpg" /></div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-4 avatar-option" data-id="7"><img src="/default/avatar_7.jpg" /></div>
+                    <div class="col-xs-4 avatar-option" data-id="8"><img src="/default/avatar_8.jpg" /></div>
+                    <div class="col-xs-4 avatar-option" data-id="9"><img src="/default/avatar_9.jpg" /></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="save-avatar">保存</button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
 <script type="text/javascript" src="/protobuf.min.js"></script>
 <script type="text/javascript">
     var ProBuf = {
@@ -222,6 +266,7 @@
                         // alert('可以愉快的聊天了');
                         break;
                     case 1004:
+                        console.log('get friend list success.');
                         break;
                     case 1006:
                         console.info('Logout success. connection closing..');
@@ -250,8 +295,9 @@
         wsClose: function(evt) {
             var self = this;
             console.warn('Connection closed.');
-            self.ws = null;
             if (confirm('你掉线了，马上重连？')) {
+                self.ws.close();
+                self.ws = null;
                 self.ws_init();
             }
         },
@@ -369,15 +415,31 @@
                 }
             });
             // change avatar
-            $('#message-container').on('click', '.message-mine avatar', function() {
-                return false;
-                // show all pics
-                for (var i=1; i<10; i++) {
-
+            $('#message-container').on('click', '.message-mine .avatar', function() {
+                $('#avatarChooseModal').modal();
+            });
+            $('#avatarChooseModal').on('click', '.avatar-option', function(e){
+                if (!$(this).hasClass('chosen')) {
+                    $('.avatar-option.chosen').removeClass('chosen');
+                    $(this).addClass('chosen');
                 }
-                // change avatar
-                self.avatar = chose_id;
-                $('.message-mine avatar').css({'background-image': 'url(/default/avatar_'+(self.avatar%9+1)+'.jpg)'});
+            }).on('click', '#save-avatar', function (e) {
+                var idx = $('#avatarChooseModal .avatar-option.chosen').data('id');
+                self.avatar = idx-1;
+                $('.message-mine .avatar').css({'background-image': 'url(/default/avatar_'+(self.avatar%9+1)+'.jpg)'});
+                $('#avatarChooseModal').modal('hide');
+            });
+            // logout
+            $('#logout').on('click', function () {
+                ProBuf.Request_Message({stamp: 1234}, 'RequestLogout', function(buf){
+                    self.ws.send(ProBuf.writeBuf(1005, buf));
+                });
+            });
+            // get Users
+            $('#get-users').on('click', function () {
+                ProBuf.Request_Message({}, 'RequestGetFriendList', function(buf){
+                    self.ws.send(ProBuf.writeBuf(1003, buf));
+                });
             });
         },
         getPlatform: function() {

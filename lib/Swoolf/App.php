@@ -23,6 +23,11 @@ class App
     public $logFile = './swoolf.log';
 
     /*
+     * dispatcher
+     */
+    public $dispatcher = NULL;
+
+    /*
      * Server
      */
     const SERVER_TYPE_WS = 1;
@@ -39,16 +44,24 @@ class App
     // swoole table
     public $table;
 
-    public function __construct($ini_file)
+    public function __construct($ini)
     {
 
         // parse ini config
-        $this->conf = $this->parseIni($ini_file);
+        if (is_array($ini)) {
+            $this->conf = $ini;
+        } else {
+            $this->conf = $this->parseIni($ini);
+        }
         // global config
 
         // log config
         if (isset($this->conf['debug'])) {
             $this->debugConf($this->conf['debug']);
+        }
+        // dispatcher config
+        if (isset($this->conf['dispatcher'])) {
+            $this->dispatcherConf($this->conf['dispatcher']);
         }
         // server config
         $this->serverSettings = $this->defaultServerSettings();
@@ -101,6 +114,10 @@ class App
         ];
     }
 
+    /**
+     * 初始化服务器配置
+     * @param $conf
+     */
     public function serverConf($conf) {
 
         if (isset($conf['type'])) {
@@ -121,6 +138,15 @@ class App
         if (isset($conf['settings'])) {
             $this->serverSettings = array_merge($this->serverSettings, $conf['settings']);
         }
+    }
+
+    /**
+     * 初始化路由协议
+     * @param $conf
+     * @throws \Exception
+     */
+    public function dispatcherConf($conf) {
+        $this->dispatcher = new Dispatcher($conf);
     }
 
     protected function initServer() {
@@ -171,7 +197,7 @@ class App
             /*
              * tcp server
              */
-
+            $this->server->on('receive', [$this, 'onSocketReceive']);
         }
     }
 

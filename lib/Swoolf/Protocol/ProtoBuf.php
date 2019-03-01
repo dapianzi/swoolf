@@ -13,53 +13,67 @@ use \Swoolf;
 class ProtoBuf implements Swoolf\Interfaces\ProtocolInterface
 {
 
-    public function __construct(){
-    }
+    public static $proto_map = [];
 
+    public function __construct(){}
 
     public function decode($buf) {
+        /**
+         * TODO 数据传输协议
+         */
         $data = unpack('Nmsgid', $buf);
         $msg_id = $data['msgid'];
         $body = unpack('a*', $buf, 4);
-        \Swoolf\Log::info($body);
-        $proto = new \Swoolf\Protocol\ProtoBufMessage($msg_id);
-        if (!$proto) {
-//            $this->err = 'No msg id matched.';
-            \Swoolf\Log::err('unknow message id '.$msg_id);
-            return FALSE;
+        $proto = $this->getProto($msg_id);
+        if ($proto) {
+            try {
+//                $proto->mergeFromString($body[1]);
+                $proto->mergeFromString(pack('a*', $body[1]));
+                return new Swoolf\RequestMsg($msg_id, $proto);
+            } catch (\Exception $e) {
+                Swoolf\Log::err('[Protobuf Error]: '. $e->getMessage());
+                unset($e);
+                return NULL;
+            }
+        } else {
+            return NULL;
         }
-        try {
-
-            $msg_obj = $proto->getProto();
-            // TODO user swoole buffer
-            $msg_obj->mergeFromString(pack('a*', $body[1]));
-        } catch (\Exception $e) {
-            \Swoolf\Log::err($e->getMessage());
-            return FALSE;
-//            throw $e;
-            // handle invalid msg
-//            throw new MessageParseException('Invalid message');
-        }
-        return new Message($msg_id, $msg_obj);
     }
 
     public function encode($msg_id, $data) {
-        $proto = new \Swoolf\Protocol\ProtoBufMessage($msg_id);
-        if (!$proto) {
-//            $this->err = 'No msg id matched.';
+        try {
+            if (is_array($data) || is_null($data)) {
+                $proto = $this->getProto($msg_id, $data);
+            } else {
+                $proto = $this->getProto($msg_id);
+                $proto->mergeFrom($data);
+            }
+            if (!$proto) {
+                return FALSE;
+            }
+        } catch (\Exception $e) {
+            Swoolf\Log::err('[Protobuf Error]: '. $e->getMessage());
+            unset($e);
             return FALSE;
         }
-        if (is_array($data)) {
-            $msg_obj = $proto->getProto($data);
-//            $msg_obj->mergeFromJsonString(json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
-//            $msg_obj->mergeFromJsonString(json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
-        } else {
-            $msg_obj = $proto->getProto();
-            $msg_obj->mergeFrom($data);
-        }
-
-        $body = $msg_obj->serializeToString();
-        // TODO user swoole buffer
+        $body = $proto->serializeToString();
+        unset($proto);
         return pack('N', $msg_id) . $body;
+    }
+
+    public function setProtoMap($proto) {
+        foreach ($proto as $k=>$v) {
+            self::$proto_map[$k] = $v;
+        }
+    }
+
+    protected function getProto($id, $data=NULL) {
+        if(!empty(self::$proto_map[$id])) {
+            $cls = '\\Proto\\' . self::$proto_map[$id];
+            return new $cls($data);
+        } else {
+            Swoolf\Log::warm('Unrecognised message '.$id);
+            return FALSE;
+        }
     }
 }

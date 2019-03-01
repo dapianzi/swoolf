@@ -31,7 +31,7 @@ class JSON implements Swoolf\Interfaces\ProtocolInterface
         if (isset($data[$this->msg_key])) {
             $msg_id = $data[$this->msg_key];
             unset($data[$this->msg_key]);
-            return new Message($msg_id, $data);
+            return new Swoolf\RequestMsg($msg_id, $data);
         }
 
         return FALSE;

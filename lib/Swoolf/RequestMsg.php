@@ -6,10 +6,10 @@
  * Time: 16:40
  */
 
-namespace Swoolf\Protocol;
+namespace Swoolf;
 
 
-class Message
+class RequestMsg
 {
 
     public $msg_id;

@@ -33,6 +33,14 @@ class Loader
         self::$root[$namespace] = $dir;
     }
 
+    public static function load($file) {
+        if (file_exists($file)) {
+            include_once $file;
+        } else {
+            throw new LoaderException('Load class '.$file.' failed. file "'.$file.'" not exists.');
+        }
+    }
+
     public static function i() {
         return __CLASS__;
     }
