@@ -12,11 +12,13 @@
 <style type="text/css">
     html,body{height: 100%;background-color: #ffffff;}
     #page {height:100%; width: 100%; max-width: 480px; margin: 0 auto;}
-    /*#chat {display: flex;flex-direction:column; height: 100%;}*/
-    /*#message-header{height:40px; line-height: 40px;font-size: 28px;padding-left: 10px;}*/
-    /*#message-container{flex: 1; padding: 10px; background-color: #FFFFFF; overflow-y: scroll;}*/
-    /*#message-sender{ padding: 10px;}*/
-    #chat {display: grid; grid-template-rows: 40px 1fr 60px; height: 100%;}
+    .tab{ display: none;}
+    .tab.view{display: block;}
+    .register-form,.login-form{padding:0 20px;}
+    .register-header,.login-header{line-height: 60px;font-size: 28px; }
+    #loading{height: 100%;}
+    .loading{position: absolute; top: 50%; width: 100%; margin-top: -20px; line-height: 40px; text-align: center;}
+    #chat.view {display: grid; grid-template-rows: 40px 1fr 60px; height: 100%;}
     #message-header{height:40px; line-height: 40px;font-size: 28px;padding-left: 10px;}
     #message-container{padding: 10px; background-color: #ececec; overflow-y: scroll;}
     #message-sender{ height:40px; padding: 10px;}
@@ -29,8 +31,17 @@
     .message::after{content:''; display: block; height:0; width:100%; clear: both;}
     .avatar{width:36px; height:36px; border-radius: 5px; border: 2px solid #DEDEDE; background: #282C34;
         background-repeat: no-repeat; background-size: contain; background-position: center center;}
-    .message-content{border-radius: 6px; margin:2px; line-height: 28px; min-height:28px; padding:2px 10px; font-size:
-            14px; position:relative; max-width:60%;}
+    .message-content{
+        border-radius: 6px;
+        margin:2px;
+        line-height: 20px;
+        min-height:28px;
+        padding:6px 8px;
+        font-size: 14px;
+        position:relative;
+        max-width:60%;
+        word-wrap: break-word;
+    }
     .message-other .avatar{float:left;}
     .message-other .message-content{float:left; background: #FFFFFF; margin-left:10px;}
     .message-other .message-content::after{content:''; display: block; width:0px; height:0px;
@@ -93,33 +104,95 @@
         from {transform: rotate(0deg);}
         to {transform: rotate(360deg);}
     }
-    .avatar-option{
-        margin-top: 10px;
+    .avatars{
     }
-    .avatar-option img{
-        width: 100%;
+    .avatar-item{
+        width: 87px;
+        height: 87px;
+        display: inline-block;
+        margin: 5px;
+        vertical-align:top;
+        border: 3px solid #4d4d4d;
+        opacity: 0.8;
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center center;
     }
-    .avatar-option.chosen img{
+    .avatar-item[data-id="1"]{background-image: url('/default/avatar_1.jpg');}
+    .avatar-item[data-id="2"]{background-image: url('/default/avatar_2.jpg');}
+    .avatar-item[data-id="3"]{background-image: url('/default/avatar_3.jpg');}
+    .avatar-item[data-id="4"]{background-image: url('/default/avatar_4.jpg');}
+    .avatar-item[data-id="5"]{background-image: url('/default/avatar_5.jpg');}
+    .avatar-item[data-id="6"]{background-image: url('/default/avatar_6.jpg');}
+    .avatar-item[data-id="7"]{background-image: url('/default/avatar_7.jpg');}
+    .avatar-item[data-id="8"]{background-image: url('/default/avatar_8.jpg');}
+    .avatar-item[data-id="9"]{background-image: url('/default/avatar_9.jpg');}
+    .avatar-item.chosen{
         border: 3px solid #12ba34;
-        opacity: .8;
+        opacity: 1;
+    }
+    .avatar-option{
+        width: 100%;
     }
 </style>
 <body>
 <div id="page">
-    <div id="chat">
-        <!--<div class="left-menu col-md-3">-->
-            <!--&lt;!&ndash;<span class="back-btn"></span>&ndash;&gt;-->
-            <!--<div class="title">Dapianzi</div>-->
-            <!--<ul class="list-group">-->
-                <!--<{foreach $users as $u}>-->
-                <!--<li class="list-group-item"><a href="javascript:void(0);" class="contact" data-uid="<{$u.id}>">-->
-                    <!--<span class="avatar" style="display:inline-block;vertical-align:middle;background-image: url(<{$BASE_URI}><{$u.avatar}>);"></span><{$u.username}>-->
-                <!--</a></li>-->
-                <!--<{/foreach}>-->
-            <!--</ul>-->
-        <!--</div>-->
+    <div class="tab" id="loading"><div class="loading">Loading..</div></div>
+    <div class="tab" id="register">
+        <div class="register-form">
+            <div class="register-header">Join Us | <a class="btn btn-xs btn-primary" id="switch-login">Login</a></div>
+            <div id="register-err"></div>
+            <form>
+                <div class="form-group">
+                    <label for="MyUsername">Username</label>
+                    <input type="text" class="form-control" id="MyUsername" placeholder="Username">
+                </div>
+                <div class="form-group">
+                    <label for="MyPassword">Password</label>
+                    <input type="password" class="form-control" id="MyPassword" placeholder="Password">
+                </div>
+                <div class="form-group">
+                    <label for="MyAvatar">Choose an avarar</label>
+                    <div class="avatars" id="MyAvatar">
+                        <div class="avatar-item" data-id="1"></div>
+                        <div class="avatar-item" data-id="2"></div>
+                        <div class="avatar-item" data-id="3"></div>
+                        <div class="avatar-item" data-id="4"></div>
+                        <div class="avatar-item" data-id="5"></div>
+                        <div class="avatar-item" data-id="6"></div>
+                        <div class="avatar-item" data-id="7"></div>
+                        <div class="avatar-item" data-id="8"></div>
+                        <div class="avatar-item" data-id="9"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-success btn-block" id="btn-register">Let's Start</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="tab" id="login">
+        <div class="login-form">
+            <div class="login-header">Login | <a class="btn btn-xs btn-primary" id="switch-register">Login</a></div>
+            <div id="login-err"></div>
+            <form>
+                <div class="form-group">
+                    <label for="LoginUsername">Username</label>
+                    <input type="text" class="form-control" id="LoginUsername" placeholder="Username">
+                </div>
+                <div class="form-group">
+                    <label for="LoginPassword">Password</label>
+                    <input type="password" class="form-control" id="LoginPassword" placeholder="Password">
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-success btn-block" id="btn-login">Begin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="tab" id="chat">
         <div id="message-header">PROTOBUF |
-            <a class="btn btn-xs btn-primary" id="get-users">Get Users</a> |
+            <!--<a class="btn btn-xs btn-primary" id="get-users">Get Users</a> |-->
             <a class="btn btn-xs btn-primary" id="logout">Logout</a>
         </div>
         <div id="message-container"></div>
@@ -142,330 +215,39 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="avatarChooseModalLabel">选择头像</h4>
+                <h4 class="modal-title" id="avatarChooseModalLabel">Choose</h4>
             </div>
             <div class="modal-body">
-                <div class="row">
-                    <div class="col-xs-4 avatar-option" data-id="1"><img src="/default/avatar_1.jpg" /></div>
-                    <div class="col-xs-4 avatar-option" data-id="2"><img src="/default/avatar_2.jpg" /></div>
-                    <div class="col-xs-4 avatar-option" data-id="3"><img src="/default/avatar_3.jpg" /></div>
-                </div>
-                <div class="row">
-                    <div class="col-xs-4 avatar-option" data-id="4"><img src="/default/avatar_4.jpg" /></div>
-                    <div class="col-xs-4 avatar-option" data-id="5"><img src="/default/avatar_5.jpg" /></div>
-                    <div class="col-xs-4 avatar-option" data-id="6"><img src="/default/avatar_6.jpg" /></div>
-                </div>
-                <div class="row">
-                    <div class="col-xs-4 avatar-option" data-id="7"><img src="/default/avatar_7.jpg" /></div>
-                    <div class="col-xs-4 avatar-option" data-id="8"><img src="/default/avatar_8.jpg" /></div>
-                    <div class="col-xs-4 avatar-option" data-id="9"><img src="/default/avatar_9.jpg" /></div>
+                <div class="avatars">
+                    <div class="avatar-item" data-id="1"></div>
+                    <div class="avatar-item" data-id="2"></div>
+                    <div class="avatar-item" data-id="3"></div>
+                    <div class="avatar-item" data-id="4"></div>
+                    <div class="avatar-item" data-id="5"></div>
+                    <div class="avatar-item" data-id="6"></div>
+                    <div class="avatar-item" data-id="7"></div>
+                    <div class="avatar-item" data-id="8"></div>
+                    <div class="avatar-item" data-id="9"></div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="save-avatar">保存</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-avatar">Save</button>
             </div>
         </div><!-- /.modal-content -->
     </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 <script type="text/javascript" src="/protobuf.min.js"></script>
+<script type="text/javascript" src="/js/my_probuf.js"></script>
+<script type="text/javascript" src="/js/my_utils.js"></script>
+<script type="text/javascript" src="/js/my_user.js"></script>
+<script type="text/javascript" src="/js/my_ui.js"></script>
+<script type="text/javascript" src="/js/my_client.js"></script>
 <script type="text/javascript">
-    var ProBuf = {
-        root: null,
-        ver: 1,
-        writeBuf: function (msgid, buf) {
-            var self = this;
-            var length = buf.length;
-            var buffer = new ArrayBuffer(buf.length + 4);
-            var dv = new DataView(buffer);
-            dv.setUint32(0, msgid, false);
-            for (let i=0;i<buf.length;i++) {
-                dv.setInt8(4+i, buf[i]);
-            }
-            return buffer;
-        },
-        readBuf: function (buf) {
-            var dv = new DataView(buf);
-            var msgid = dv.getUint32(0, false);
-            var buf = new Uint8Array(buf, 4);
-            return [msgid, buf];
-        },
-        Request_Message: function Request_Message(msg, req, callback) {
-            var RequestMessage = this.root.lookupType("Proto."+req);
-            var errMsg = RequestMessage.verify(msg);
-            if (errMsg)
-                throw Error(errMsg);
-            var message = RequestMessage.fromObject(msg); // or use .fromObject if conversion is necessary
-            var buffer = RequestMessage.encode(message).finish();
-            callback(buffer);
-        },
-        Response_Message: function (buf, res, callback) {
-            var ResponseMessage = this.root.lookupType("Proto."+res);
-            var message = ResponseMessage.decode(buf);
-            var object = ResponseMessage.toObject(message, {
-                longs: String,
-                // enums: String,
-                bytes: String,
-            });
-            callback(object);
-        }
-    };
-    var client = {
-        ws: null,
-        id: 0,
-        avatar: 0,
-        timer: {},
-        ws_init: function(cb) {
-            var self = this;
-            this.ws = new WebSocket("ws://192.168.1.27:8907");
-            this.ws.binaryType = 'arraybuffer';
-            this.ws.onopen = function(evt) {
-                self.wsOpen(evt);
-                if(cb) {cb();}
-            }
-            this.ws.onmessage = function(evt) {
-                self.wsMessage(evt);
-            }
-            this.ws.onclose = function(evt) {
-                self.wsClose(evt);
-            }
-        },
-        wsOpen: function(evt) {
-            console.info('Connect to server ok.');
-            var self = this;
-            this.ws_open = true;
-            var account = 'dapianzi';
-            var password = '123';
-            ProBuf.Request_Message({
-                username: account,
-                password: password,
-                deviceid: navigator.userAgent.substr(0, 32),
-                platform: self.getPlatform(),
-            }, 'RequestLogin', function(buf){
-                self.ws.send(ProBuf.writeBuf(1001, buf));
-            });
-        },
-        wsMessage: function(evt) {
-            var self = this;
-            var [msg_id, buf] = ProBuf.readBuf(evt.data);
-            var res_proto = {
-                1002: 'ResponseLogin',
-                1004: 'ResponseGetFriendList',
-                1006: 'ResponseLogout',
-                1008: 'ResponseSendMessage',
-                1010: 'ResponseReceiveMessage',
-                1012: 'ResponseGetHistoryMessage',
-            }[msg_id];
-
-            ProBuf.Response_Message(buf, res_proto, function(data) {
-                console.log(data);
-                switch (msg_id) {
-                    case 1002:
-                        self.id = data.id;
-                        self.avatar = data.id;
-                        // alert('可以愉快的聊天了');
-                        break;
-                    case 1004:
-                        console.log('get friend list success.');
-                        break;
-                    case 1006:
-                        console.info('Logout success. connection closing..');
-                        break;
-                    case 1008:
-                        console.info('message send success');
-                        clearTimeout(self.timer[data.msgID]);
-                        delete self.timer[data.msgID];
-                        $('#msg-'+data.msgID).removeClass('sending');
-                        break;
-                    case 1010:
-                        // receive message
-                        self.insertMsg(data.msg, false);
-                        break;
-                    case 1012:
-                        for(var i in data.msg) {
-                            self.insertMsg(data.msg[i], false);
-                        }
-                        break;
-                    default:
-                        console.error('unresolved msg:' + msg_id);
-                        return ;
-                }
-            })
-        },
-        wsClose: function(evt) {
-            var self = this;
-            console.warn('Connection closed.');
-            if (confirm('你掉线了，马上重连？')) {
-                self.ws.close();
-                self.ws = null;
-                self.ws_init();
-            }
-        },
-        sendMsg: function(msg) {
-            var self = this;
-            ProBuf.Request_Message({ChatId: 1, msg: msg}, 'RequestSendMessage', function(buf){
-                self.ws.send(ProBuf.writeBuf(1007, buf));
-            });
-            self.insertMsg(msg, true);
-        },
-        sendText: function(text) {
-            var self = this;
-            var msg = {
-                msgID: Math.floor(new Date().getTime()/1000),
-                msgType: 0,
-                stamp: Math.floor(new Date().getTime()/1000),
-                content: text,
-                from: self.id,
-            };
-            self.sendMsg(msg);
-        },
-        sendBlob: function(blob) {
-            var self = this;
-            var msg = {
-                msgID: Math.floor(new Date().getTime()/1000),
-                msgType: 1,
-                stamp: Math.floor(new Date().getTime()/1000),
-                content: blob,
-                from: self.id,
-            };
-            self.sendMsg(msg);
-        },
-        sendPic: function(src) {
-            var self = this;
-            var msg = {
-                msgID: Math.floor(new Date().getTime()/1000),
-                msgType: 2,
-                stamp: Math.floor(new Date().getTime()/1000),
-                content: src,
-                from: self.id,
-            };
-            self.sendMsg(msg);
-        },
-        insertMsg: function(msg, flag) {
-            var self = this;
-            var cls = flag ? 'mine sending' : 'other';
-            var avatar = flag ? (self.avatar%9+1) : (msg.from%9+1);
-            if (msg.msgType == 0 || !msg.msgType) {
-                var _html = '<div class="message message-'+ cls +'" id="msg-'+msg.msgID+'">' +
-                    '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
-                    '<div class="message-content message-text">' + msg.content + '</div></div>';
-            } else if (msg.msgType == 1) {
-                var _html = '<div class="message message-'+ cls +'" id="msg-'+msg.msgID+'">' +
-                    '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
-                    '<div class="message-content message-img"><img src="data:image/png;base64,'+window.btoa(msg.content)+'"/></div></div>';
-            } else if (msg.msgType == 2) {
-                var _html = '<div class="message message-'+ cls +'" id="msg-'+msg.msgID+'">' +
-                    '<div class="avatar" style="background-image:url(/default/avatar_'+avatar+'.jpg);"></div>' +
-                    '<div class="message-content message-img"><img src="' + msg.content + '"/></div></div>';
-            }
-            $('#message-container').append(_html);
-            var _height = $('#message-container .message:last').offset().top - $('#message-container .message:first').offset().top;
-            $('#message-container').scrollTop(_height);
-            if (flag) {
-                self.waiting_response(msg.msgID);
-            }
-        },
-        waiting_response(msgID) {
-            var self = this;
-            self.timer[msgID] = setTimeout(function(){
-                $('#msg-'+msgID).removeClass('sending').addClass('failed');
-            }, 10000);
-        },
-        bind_events: function() {
-            var self = this;
-            $('#send-text').on('click', function() {
-                var text = $('#msg-text').val();
-                if ('' !== text) {
-                    self.sendText(text);
-                    $('#msg-text').val('').focus();
-                }
-            });
-            $('#msg-text').on('keyup', function(e) {
-                if (e.keyCode == 13) {
-                    $('#send-text').trigger('click');
-                }
-            });
-            // 断线重连
-            $('#message-container').on('click', '.message.failed', function() {
-                $(this).removeClass('failed').addClass('sending');
-                if (!self.ws){
-                    self.ws_init(function() {
-                        // TODO 消息重发
-                        // self.sendText($(this).find('.message-content').text());
-                    });
-                } else {
-                    // TODO 消息重发
-                    // self.sendText($(this).find('.message-content').text());
-                }
-            });
-            // 发送图片
-            $('#file-inp').on('change', function(e){
-                //加载本地文件
-                var file = $(this)[0].files[0];
-                var reader = new FileReader();
-                var step = 1024 * 1024;
-                var total = file.size;
-                var cuLoaded = 0;
-                console.info("文件大小：" + file.size);
-                // reader.readAsArrayBuffer(file); //
-                reader.readAsBinaryString(file);   //返回二进制字符串
-                reader.onload = function (e) {
-                    console.log(e);
-                    self.sendBlob(reader.result)
-                }
-            });
-            // change avatar
-            $('#message-container').on('click', '.message-mine .avatar', function() {
-                $('#avatarChooseModal').modal();
-            });
-            $('#avatarChooseModal').on('click', '.avatar-option', function(e){
-                if (!$(this).hasClass('chosen')) {
-                    $('.avatar-option.chosen').removeClass('chosen');
-                    $(this).addClass('chosen');
-                }
-            }).on('click', '#save-avatar', function (e) {
-                var idx = $('#avatarChooseModal .avatar-option.chosen').data('id');
-                self.avatar = idx-1;
-                $('.message-mine .avatar').css({'background-image': 'url(/default/avatar_'+(self.avatar%9+1)+'.jpg)'});
-                $('#avatarChooseModal').modal('hide');
-            });
-            // logout
-            $('#logout').on('click', function () {
-                ProBuf.Request_Message({stamp: 1234}, 'RequestLogout', function(buf){
-                    self.ws.send(ProBuf.writeBuf(1005, buf));
-                });
-            });
-            // get Users
-            $('#get-users').on('click', function () {
-                ProBuf.Request_Message({}, 'RequestGetFriendList', function(buf){
-                    self.ws.send(ProBuf.writeBuf(1003, buf));
-                });
-            });
-        },
-        getPlatform: function() {
-            if (navigator.userAgent.toLocaleLowerCase().indexOf('mac') > 0) {
-                return 3;
-            } else if (navigator.userAgent.toLocaleLowerCase().indexOf('android') > 0) {
-                return 2;
-            } else {
-                return 1;
-            }
-        },
-        ini: function() {
-            var self = this;
-            protobuf.load('/app.proto', function(err, root) {
-                if (err) {
-                    console.error(err);
-                    return false;
-                }
-                ProBuf.root = root;
-                self.ws_init();
-            });
-            self.bind_events();
-        }
-    };
     $(function(){
-        client.ini();
+        my_client.ini(function(){
+            console.log(111);
+        });
     });
 </script>
 </body>

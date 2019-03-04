@@ -11,27 +11,18 @@ define('APP_PATH', dirname(dirname(__FILE__)));
 require APP_PATH . '/lib/Swoolf/Loader.php';
 
 
-class myChat extends \Swoolf\App {
+$app = new \Swoolf\App(APP_PATH . '/lib/application.ini');
 
-    public function onWSOpen($server, $request)
-    {
-        $server->push($request->fd, myApp::pack(1010, [
-            'ChatId' => 1,
-            'stamp' => time(),
-            'msg' => new \Proto\MessageBody([
-                'msgID' => time(),
-                'content' => 'Welcome',
-                'msgType' => 0,
-                'stamp' => time(),
-                'from' => 1
-            ]),
-        ]), WEBSOCKET_OPCODE_BINARY);
-    }
+$app->on('open', function($server, $request) use ($app) {
 
+});
+$app->on('message', function($server, $request) use ($app) {
+
+});
     public function onWSMessage($server, $frame)
     {
 //        \Swoolf\Log::log('Receive msg from fd['.$frame->fd.']:'.$frame->data);
-        $this->dispatch($frame->fd, $frame->data);
+        dispatch($server, $frame->fd, $frame->data);
 //        \Swoolf\Log::warm($response);
 //        $server->push($fd, $response);
 //        foreach ($server->connections as $fd) {
@@ -43,39 +34,36 @@ class myChat extends \Swoolf\App {
 //                $server->push($fd, $response);
 //            }
 //        }
+function dispatch($server, $fd, $buf) {
+    $msg = self::unpack($buf);
+    if (!$msg) {
+        $this->log::err('Unpack error:'.$buf);
+        $this->log::warm(sprintf('Unpack message from fd[%d], ip[%s]', $fd, $server->getClientInfo($fd)['remote_ip']));
+        return false;
     }
-
-    public function dispatch($fd, $buf) {
-        $msg = self::unpack($buf);
-        if (!$msg) {
-            $this->log::err('Unpack error:'.$buf);
-            $this->log::warm(sprintf('Unpack message from fd[%d], ip[%s]', $fd, $this->server->getClientInfo($fd)['remote_ip']));
-            return false;
+    switch ($msg->msg_id) {
+        case 1001:{
+            (new TestController($fd, $msg))->RequestLogin();
+            break;
         }
-        switch ($msg->msg_id) {
-            case 1001:{
-                (new TestController($fd, $msg))->RequestLogin();
-                break;
-            }
-            case 1003:{
-                (new TestController($fd, $msg))->RequestGetFriendList();
-                break;
-            }
-            case 1005:{
-                (new TestController($fd, $msg))->RequestLogout();
-                break;
-            }
-            case 1007:{
-                (new TestController($fd, $msg))->RequestSendMessage();
-                break;
-            }
-            case 1011:{
-                (new TestController($fd, $msg))->RequestGetHistoryMessage();
-                break;
-            }
-            default: {
-                $this->log::warm('Unresolved message id '.$msg->msg_id);
-            }
+        case 1003:{
+            (new TestController($fd, $msg))->RequestGetFriendList();
+            break;
+        }
+        case 1005:{
+            (new TestController($fd, $msg))->RequestLogout();
+            break;
+        }
+        case 1007:{
+            (new TestController($fd, $msg))->RequestSendMessage();
+            break;
+        }
+        case 1011:{
+            (new TestController($fd, $msg))->RequestGetHistoryMessage();
+            break;
+        }
+        default: {
+            $this->log::warm('Unresolved message id '.$msg->msg_id);
         }
     }
 }
@@ -89,7 +77,7 @@ class TestController {
     public function __construct($fd, $request)
     {
         $this->fd = $fd;
-        $this->app = myApp::getInstance();
+        $this->app = \Swoolf\App::getInstance();
         $this->data = $request->msg_data;
         $this->req = $request;
         $this->user = $this->app->table->get($this->fd);

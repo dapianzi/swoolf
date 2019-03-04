@@ -14,6 +14,7 @@ class MessageController extends Controller
 
     public function SendMessageAction() {
         $msg = $this->request->msg_data->getMsg();
+        $this->app->log::warm($msg->getMsgID());
         $this->response(1008, [
             'msgID' => $msg->getMsgID()
         ]);
@@ -26,9 +27,8 @@ class MessageController extends Controller
         $msgType = $msg->getMsgType();
         if ($msgType == 0) {
             // text msg
-            $response = $this->dispatcher->protocol->encode(1010, [
+            $response = $this->app->dispatcher->protocol->encode(1010, [
                 'ChatId' => $ChatId,
-                'stamp' => time(),
                 'msg' => $msg,
             ]);
             foreach ($this->app->server->connections as $fd) {
@@ -41,9 +41,8 @@ class MessageController extends Controller
                 }
             }
         } else if ($msgType == 1) {
-            $response = $this->dispatcher->protocol->encode(1010, [
+            $response = $this->app->dispatcher->protocol->encode(1010, [
                 'ChatId' => $ChatId,
-                'stamp' => time(),
                 'msg' => $msg,
             ]);
             foreach ($this->app->server->connections as $fd) {

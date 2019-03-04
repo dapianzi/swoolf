@@ -11,20 +11,18 @@ namespace App\Controller;
 
 class Controller
 {
-    public $app = NULL;
     public $fd = 0;
-    public $dispatcher = NULL;
+    public $app = NULL;
     public $request = NULL;
 
-    public function __construct($app)
+    public function __construct($fd, $request)
     {
-        $this->app = $app;
-        $this->dispatcher = $app->dispatcher;
-        $this->fd = $app->dispatcher->fd;
-        $this->request = $app->dispatcher->request;
+        $this->fd = $fd;
+        $this->request = $request;
+        $this->app = \Swoolf\App::getInstance();
     }
 
     public function response($msg_id, $data=null) {
-        return $this->app->server->push($this->fd, $this->dispatcher->protocol->encode($msg_id, $data), WEBSOCKET_OPCODE_BINARY);
+        $this->app->server->push($this->fd, $this->app->dispatcher->protocol->encode($msg_id, $data), WEBSOCKET_OPCODE_BINARY);
     }
 }

@@ -10,10 +10,10 @@ namespace Swoolf;
 
 use Throwable;
 
-class App
+final class App
 {
 
-    protected static $INSTANCE = [];
+    protected static $INSTANCE = NULL;
 
     public $conf = NULL;
     /*
@@ -53,6 +53,7 @@ class App
         } else {
             $this->conf = $this->parseIni($ini);
         }
+        Register::set('conf', $this->conf);
         // global config
 
         // log config
@@ -81,7 +82,7 @@ class App
         $this->table->column('name', \Swoole\Table::TYPE_STRING, 64);
         $this->table->column('icon', \Swoole\Table::TYPE_STRING, 255);
         $this->table->create();
-        self::$INSTANCE[get_called_class()] = $this;
+        self::$INSTANCE = $this;
     }
 
     public function parseIni($file) {
@@ -259,16 +260,23 @@ class App
     }
 
     public function onWSMessage($server, $frame) {
-//        Log::log(sprintf('Receive from client[%d]: %s,opcode: %s, fin: %s', $frame->fd, $frame->data, $frame->opcode, $frame->finish));
-//        $server->push($frame->fd, 'This is server: '.$frame->data);
-        foreach ($server->connections as $fd) {
-            if ($fd == $frame->fd) {
-                continue;
+        Log::warm(count($server->connections));
+        $this->log::log($frame->data);
+        if ($this->dispatcher->dispatch($frame->fd, $frame->data)) {
+            $controller = $this->dispatcher->controller.'Controller';
+            $action = $this->dispatcher->action.'Action';
+            $obj = new $controller($this->dispatcher->fd, $this->dispatcher->request);
+            try {
+                $obj->$action();
+                unset($obj);
+            } catch (\Exception $e) {
+                $this->log::err($e->getMessage());
+                $this->log::log($e->getTraceAsString());
             }
-            $info = $server->connection_info($fd);
-            if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
-                $server->push($fd, '['.$frame->fd.']:'.$frame->data);
-            }
+        } else {
+            $this->log::err('Unpack error:'.$frame->data);
+            $this->log::warm(sprintf('Unpack message from fd[%d], ip[%s]', $frame->fd, $this->server->getClientInfo($frame->fd)['remote_ip']));
+            return false;
         }
     }
 
@@ -399,12 +407,11 @@ class App
      * @return null|App
      */
     public static function getInstance() {
-        $cls = get_called_class();
-        if (!isset(self::$INSTANCE[$cls])) {
+        if (!self::$INSTANCE) {
             $argv = func_get_args();
-            self::$INSTANCE[$cls] = new $cls($argv[0]);
+            self::$INSTANCE = new self($argv[0]);
         }
-        return self::$INSTANCE[$cls];
+        return self::$INSTANCE;
     }
 
 }

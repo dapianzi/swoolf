@@ -2,11 +2,17 @@ syntax =  "proto3";
 package Proto;
 
 message MessageBody {
-    uint32 msgID = 1;
+    uint64 msgID = 1;
     MessageType msgType = 2;
     string content = 3;
-    uint32 stamp = 4;
+    uint64 stamp = 4;
     uint32 from = 5;
+}
+message Chat {
+    uint32 id = 1;
+    string icon = 2;
+    uint32 last_time = 3;
+    string last_msg = 4;
 }
 message Role {
     uint32 id = 1;
@@ -18,40 +24,43 @@ enum MessageType {
     BLOB = 1;
     NOTIFY = 3;
 }
-enum OpCode {
+enum Error {
     SUCCESS = 0;
     ERR = 1;
 }
 
 
 // 1001
-message RequestLogin {
+message RequestRegister {
     string username = 1;
     string password = 2;
-    string deviceid = 3;
-    int32 platform = 4;
+    string avatar = 3;
 }
 // 1002
-message ResponseLogin {
-    OpCode op = 1;
-    uint32 id = 2;
-    string token = 3;
+message ResponseRegister {
+    Error err = 1;
+    string token = 2;
 }
 // 1003
-message RequestGetFriendList {}
+message RequestLogin {
+    string token = 1;
+}
 // 1004
-message ResponseGetFriendList {
-    OpCode op = 1;
-    repeated Role list = 2;
+message ResponseLogin {
+    Error err = 1;
+    uint32 id = 2;
+    string username = 3;
+    string avatar = 4;
+    repeated Chat chats = 5;
 }
 
 // 1005
 message RequestLogout{
-    uint32 ts = 1;
+    uint64 ts = 1;
 }
 // 1006
 message ResponseLogout{
-    OpCode op = 1;
+    Error err = 1;
 }
 
 // 1007
@@ -61,14 +70,13 @@ message RequestSendMessage {
 }
 // 1008
 message ResponseSendMessage {
-    OpCode op = 1;
-    uint32 msgID = 2;
+    Error err = 1;
+    uint64 msgID = 2;
 }
 
 // 1010
 message ResponseReceiveMessage {
     uint32 ChatId = 1;
-    uint32 stamp = 2;
     MessageBody msg = 3;
 }
 // 1011
@@ -78,8 +86,9 @@ message RequestGetHistoryMessage {
 }
 // 1012
 message ResponseGetHistoryMessage {
-    OpCode op = 1;
-    repeated MessageBody msg = 2;
+    Error err = 1;
+    uint32 ChatId = 2;
+    repeated MessageBody msg = 3;
 }
 
 message A {
