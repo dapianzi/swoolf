@@ -22,6 +22,7 @@ message Role {
 enum MessageType {
     TEXT = 0;
     BLOB = 1;
+    PIC = 2;
     NOTIFY = 3;
 }
 enum Error {

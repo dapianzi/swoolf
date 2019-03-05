@@ -24,18 +24,22 @@ class PDODriver
         $this->username = $username;
         $this->password = $password;
         $this->database = $db;
+        $this->dbLink = PDODriver::getInstance($dsn, $username, $password, $db='');
+    }
 
-        $opts = array (
-            \PDO::ATTR_ERRMODE  => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_PERSISTENT  => TRUE,
-            // Cancel one specific SQL mode option that RackTables has been non-compliant
-            // with but which used to be off by default until MySQL 5.7. As soon as
-            // respective SQL queries and table columns become compliant with those options
-            // stop changing @@SQL_MODE but still keep SET NAMES in place.
-            \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = REPLACE(@@SQL_MODE, "NO_ZERO_DATE", "")',
-            \PDO::ATTR_STRINGIFY_FETCHES => FALSE,
-            \PDO::ATTR_EMULATE_PREPARES => FALSE,
-        );
+    public static function getInstance($dsn, $username, $password, $db='') {
+        if (!self::$instance) {
+            $opts = array (
+                \PDO::ATTR_ERRMODE  => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_PERSISTENT  => TRUE,
+                // Cancel one specific SQL mode option that RackTables has been non-compliant
+                // with but which used to be off by default until MySQL 5.7. As soon as
+                // respective SQL queries and table columns become compliant with those options
+                // stop changing @@SQL_MODE but still keep SET NAMES in place.
+                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = REPLACE(@@SQL_MODE, "NO_ZERO_DATE", "")',
+                \PDO::ATTR_STRINGIFY_FETCHES => FALSE,
+                \PDO::ATTR_EMULATE_PREPARES => FALSE,
+            );
 //            if (isset ($pdo_bufsize))
 //                $opts[PDO::MYSQL_ATTR_MAX_BUFFER_SIZE] = $pdo_bufsize;
 //            if (isset ($pdo_ssl_key))
@@ -44,39 +48,32 @@ class PDODriver
 //                $opts[PDO::MYSQL_ATTR_SSL_CERT] = $pdo_ssl_cert;
 //            if (isset ($pdo_ssl_ca))
 //                $opts[PDO::MYSQL_ATTR_SSL_CA] = $pdo_ssl_ca;
-        /*
-         * TODO singleton pattern mode.
-         */
-        $this->dbLink = new \PDO ($dsn, $username, $password, array (
-            \PDO::ATTR_ERRMODE  => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_PERSISTENT  => TRUE,
-            // Cancel one specific SQL mode option that RackTables has been non-compliant
-            // with but which used to be off by default until MySQL 5.7. As soon as
-            // respective SQL queries and table columns become compliant with those options
-            // stop changing @@SQL_MODE but still keep SET NAMES in place.
-            \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = REPLACE(@@SQL_MODE, "NO_ZERO_DATE", "")',
-            \PDO::ATTR_STRINGIFY_FETCHES => FALSE,
-            \PDO::ATTR_EMULATE_PREPARES => FALSE,
-        ));
+            /*
+             * TODO singleton pattern mode.
+             */
+            self::$instance = new \PDO ($dsn, $username, $password, $opts);
+        }
+        return self::$instance;
     }
 
     public function reConnect() {
-        $this->dbLink = new \PDO($this->dsn, $this->username, $this->password);
+        self::$instance = null;
+        $this->dbLink = self::getInstance($this->dsn, $this->username, $this->password, $this->database);
     }
 
     public function execute($sql, $param = array()) {
+        // TODO auto reconnect
         try {
             $pre = $this->dbLink->prepare($sql);
             $pre->execute($param);
         } catch (\PDOException $e) {
-            \Swoolf\Log::err("=======================");
-            \Swoolf\Log::err($e->getCode().'---'.$e->getMessage());
-            if ($e->getCode() == 2013) {
+            if ($e->errorInfo[1] == 2006 || $e->errorInfo[1] == 2013) {
                 $this->reConnect();
                 $pre = $this->dbLink->prepare($sql);
                 $pre->execute($param);
+                unset($e);
             } else {
-                return FALSE;
+                throw $e;
             }
         }
         $this->lastSql = $pre->queryString;

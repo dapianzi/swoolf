@@ -179,7 +179,6 @@ final class App
         $this->server->on('workerStop', [$this, 'onWorkerStop']);
         $this->server->on('workerExit', [$this, 'onWorkerExit']);
 
-
         if ($this->serverType == self::SERVER_TYPE_WS) {
             /*
              * web socket server
@@ -200,13 +199,19 @@ final class App
              */
             $this->server->on('receive', [$this, 'onSocketReceive']);
         }
-    }
 
-    public function on($event, $func) {
-        if ($this->server) {
-            $this->server->on($event, $func);
+        if ($this->serverSettings['task_worker_num']) {
+            $this->server->on('task', [$this, 'onTask']);
+            $this->server->on('finish', [$this, 'onFinish']);
         }
     }
+
+    // TODO 绑定自定义回调事件
+//    public function on($event, $func) {
+//        if ($this->server) {
+//            $this->server->on($event, $func);
+//        }
+//    }
 
     public function onStart($server) {
         Log::info($this->serverName . ' master process start [OK].');
@@ -226,6 +231,7 @@ final class App
     public function onWorkerStart($server, $worker_id) {
         if ($server->taskworker) {
             Log::info(sprintf('task [%d] begin..', $worker_id));
+            swoole_set_process_name($this->serverName. '-task-worker-'.$worker_id);
         } else {
             Log::info(sprintf('worker [%d] start..', $worker_id));
             swoole_set_process_name($this->serverName. '-worker-'.$worker_id);
@@ -244,6 +250,37 @@ final class App
         Log::warm('Worker ['. $worker_id .'] is exiting..');
     }
 
+    /************************ task worker ************************/
+    public function onTask($serv, $task_id, $src_worker_id, $data) {
+        Log::ok(sprintf('task %d[%d] begin at %f.', $data['task_id'], $task_id, microtime(TRUE)));
+        switch ($data['task_id']) {
+            case 1001:
+                $id = (new \App\Task\MessageTask())->saveMessageTask($data['data']);
+                break;
+            case 1002:
+                (new \App\Task\MessageTask())->DBtestTask();
+                break;
+            default:
+                // broadcast message
+                foreach ($serv->connections as $fd) {
+                    if (isset($data['fd']) && $fd == $data['fd']) {
+                        continue;
+                    }
+                    $info = $this->server->connection_info($fd);
+                    if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
+                        $this->server->push($fd, $data['response'], WEBSOCKET_OPCODE_BINARY);
+                    }
+                }
+                $this->log::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
+        }
+        $serv->finish($data);
+    }
+
+    public function onFinish($serv, $task_id, $data) {
+//        $data = msgpack_unpack($data);
+        Log::ok(sprintf('task %d[%d] finish at %f.', $data['task_id'], $task_id, microtime(TRUE)));
+    }
+
     /************************ http server ************************/
     public function onHttpRequest($request, $response) {
         Log::log('Server on request fd['.$request->fd.']..');
@@ -260,8 +297,8 @@ final class App
     }
 
     public function onWSMessage($server, $frame) {
-        Log::warm(count($server->connections));
-        $this->log::log($frame->data);
+        Log::warm("Current Worker ID: ".$server->worker_id);
+//        $this->log::log("receive data from ".$frame->fd);
         if ($this->dispatcher->dispatch($frame->fd, $frame->data)) {
             $controller = $this->dispatcher->controller.'Controller';
             $action = $this->dispatcher->action.'Action';

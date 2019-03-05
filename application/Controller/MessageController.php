@@ -14,15 +14,22 @@ class MessageController extends Controller
 
     public function SendMessageAction() {
         $msg = $this->request->msg_data->getMsg();
-        $this->app->log::warm($msg->getMsgID());
+        // save to db
+        $task_data = [
+            'task_id' => 1001,
+            'data' => [
+                'msgID' => $msg->getMsgID(),
+                'msgStamp' => $msg->getStamp(),
+                'msgType' => $msg->getMsgType(),
+                'msgContent' => $msg->getContent(),
+                'msgFrom' => $msg->getFrom(),
+            ]
+        ];
+        $this->app->server->task($task_data);
         $this->response(1008, [
             'msgID' => $msg->getMsgID()
         ]);
-        // save message to db;
-        $this->app->log::ok($this->request->msg_id);
         // broadcast message
-        // todo should done in a task
-
         $ChatId = $this->request->msg_data->getChatId();
         $msgType = $msg->getMsgType();
         if ($msgType == 0) {
@@ -31,30 +38,14 @@ class MessageController extends Controller
                 'ChatId' => $ChatId,
                 'msg' => $msg,
             ]);
-            foreach ($this->app->server->connections as $fd) {
-                if ($fd == $this->fd) {
-                    continue;
-                }
-                $info = $this->app->server->connection_info($fd);
-                if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
-                    $this->app->server->push($fd, $response, WEBSOCKET_OPCODE_BINARY);
-                }
-            }
+
         } else if ($msgType == 1) {
             $response = $this->app->dispatcher->protocol->encode(1010, [
                 'ChatId' => $ChatId,
                 'msg' => $msg,
             ]);
-            foreach ($this->app->server->connections as $fd) {
-                if ($fd == $this->fd) {
-                    continue;
-                }
-                $info = $this->app->server->connection_info($fd);
-                if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
-                    $this->app->server->push($fd, $response, WEBSOCKET_OPCODE_BINARY);
-                }
-            }
         }
+        $this->app->server->task(['task_id'=>1000, 'fd'=>$this->fd, 'response'=>$response]);
     }
 
 }
