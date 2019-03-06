@@ -15,6 +15,8 @@ final class App
 
     protected static $INSTANCE = NULL;
 
+    private $callbackFn = [];
+
     public $conf = NULL;
     /*
      * Debug
@@ -207,25 +209,32 @@ final class App
     }
 
     // TODO 绑定自定义回调事件
-//    public function on($event, $func) {
-//        if ($this->server) {
-//            $this->server->on($event, $func);
-//        }
-//    }
+    public function on($event, $func) {
+        $this->callbackFn[$event] = $func;
+    }
 
     public function onStart($server) {
         Log::info($this->serverName . ' master process start [OK].');
         Log::info(sprintf('master pid [%d], manager pid [%d]', $server->master_pid, $server->manager_pid));
         swoole_set_process_name($this->serverName.'-master');
+        if (isset($this->callbackFn['start'])) {
+            call_user_func($this->callbackFn['start'], $server);
+        }
     }
 
     public function onManagerStart($server) {
         Log::info($this->serverName . ' manager process start [OK].');
         swoole_set_process_name($this->serverName.'-manager');
+        if (isset($this->callbackFn['managerStart'])) {
+            call_user_func($this->callbackFn['managerStart'], $server);
+        }
     }
 
     public function onShutdown($server) {
         Log::warm($this->serverName . ' shutdown. BYE~');
+        if (isset($this->callbackFn['shutdown'])) {
+            call_user_func($this->callbackFn['shutdown'], $server);
+        }
     }
 
     public function onWorkerStart($server, $worker_id) {
@@ -236,6 +245,9 @@ final class App
             Log::info(sprintf('worker [%d] start..', $worker_id));
             swoole_set_process_name($this->serverName. '-worker-'.$worker_id);
         }
+        if (isset($this->callbackFn['workerStart'])) {
+            call_user_func($this->callbackFn['workerStart'], $server, $worker_id);
+        }
     }
 
     public function onWorkerStop($server, $worker_id) {
@@ -244,76 +256,64 @@ final class App
         } else {
             Log::warm(sprintf('worker [%d] stop.', $worker_id));
         }
+        if (isset($this->callbackFn['workerStop'])) {
+            call_user_func($this->callbackFn['workerStop'], $server, $worker_id);
+        }
     }
 
     public function onWorkerExit($server, $worker_id) {
         Log::warm('Worker ['. $worker_id .'] is exiting..');
+        if (isset($this->callbackFn['workerExit'])) {
+            call_user_func($this->callbackFn['workerExit'], $server, $worker_id);
+        }
     }
 
     /************************ task worker ************************/
     public function onTask($serv, $task_id, $src_worker_id, $data) {
-        Log::ok(sprintf('task %d[%d] begin at %f.', $data['task_id'], $task_id, microtime(TRUE)));
-        switch ($data['task_id']) {
-            case 1001:
-                $id = (new \App\Task\MessageTask())->saveMessageTask($data['data']);
-                break;
-            case 1002:
-                (new \App\Task\MessageTask())->DBtestTask();
-                break;
-            default:
-                // broadcast message
-                foreach ($serv->connections as $fd) {
-                    if (isset($data['fd']) && $fd == $data['fd']) {
-                        continue;
-                    }
-                    $info = $this->server->connection_info($fd);
-                    if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
-                        $this->server->push($fd, $data['response'], WEBSOCKET_OPCODE_BINARY);
-                    }
-                }
-                $this->log::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
+        Log::log(sprintf('task %d from %d begin at %f.', $task_id, $src_worker_id, microtime(TRUE)));
+        if (isset($this->callbackFn['task'])) {
+            call_user_func($this->callbackFn['task'], $serv, $task_id, $src_worker_id, $data);
         }
-        $serv->finish($data);
     }
 
     public function onFinish($serv, $task_id, $data) {
-//        $data = msgpack_unpack($data);
-        Log::ok(sprintf('task %d[%d] finish at %f.', $data['task_id'], $task_id, microtime(TRUE)));
+        Log::log(sprintf('task %d finish at %f.', $task_id, microtime(TRUE)));
+        Log::err("11111");
+        if (isset($this->callbackFn['finish'])) {
+            Log::err("nothing");
+            call_user_func($this->callbackFn['finish'], $serv, $task_id, $data);
+        }
+        Log::err("2222");
     }
 
     /************************ http server ************************/
     public function onHttpRequest($request, $response) {
-        Log::log('Server on request fd['.$request->fd.']..');
-        $response->end('swoole default http request.');
+        Log::log(sprintf('request "%s" From [%d]', $request->server['request_uri'], $request->fd));
+        if (isset($this->callbackFn['request'])) {
+            call_user_func($this->callbackFn['request'], $request, $response);
+        }
     }
 
     /************************ web socket ************************/
     public function onWSOpen($server, $request) {
-        Log::info('Server handshake success with fd['.$request->fd.'].');
+        Log::log('Server handshake success with fd['.$request->fd.'].');
+        if (isset($this->callbackFn['open'])) {
+            call_user_func($this->callbackFn['open'], $server, $request);
+        }
     }
 
     public function onWSClose($server, $fd) {
-        Log::warm('Client fd['.$fd.'] closed.');
+        Log::log('Client fd['.$fd.'] closed.');
+        if (isset($this->callbackFn['close'])) {
+            call_user_func($this->callbackFn['close'], $server, $fd);
+        }
     }
 
     public function onWSMessage($server, $frame) {
         Log::warm("Current Worker ID: ".$server->worker_id);
 //        $this->log::log("receive data from ".$frame->fd);
-        if ($this->dispatcher->dispatch($frame->fd, $frame->data)) {
-            $controller = $this->dispatcher->controller.'Controller';
-            $action = $this->dispatcher->action.'Action';
-            $obj = new $controller($this->dispatcher->fd, $this->dispatcher->request);
-            try {
-                $obj->$action();
-                unset($obj);
-            } catch (\Exception $e) {
-                $this->log::err($e->getMessage());
-                $this->log::log($e->getTraceAsString());
-            }
-        } else {
-            $this->log::err('Unpack error:'.$frame->data);
-            $this->log::warm(sprintf('Unpack message from fd[%d], ip[%s]', $frame->fd, $this->server->getClientInfo($frame->fd)['remote_ip']));
-            return false;
+        if (isset($this->callbackFn['message'])) {
+            call_user_func($this->callbackFn['message'], $server, $frame);
         }
     }
 

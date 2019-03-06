@@ -7,76 +7,37 @@
  */
 namespace Swoolf\DB;
 
-class PDODriver
+class Mysql
 {
     static public $instance;
 
-    private $dbLink;
-    private $dsn;
-    private $username;
-    private $password;
-    private $database;
-    private $lastInsertId;
+    private $db;
+    private $lastSql;
+//    private $lastInsertId;
     private $errMessage;
 
-    public function __construct($dsn, $username, $password) {
-        $this->dsn = $dsn;
-        $this->username = $username;
-        $this->password = $password;
-        $this->dbLink = self::getInstance($dsn, $username, $password, $db='');
+    public function __construct($conf) {
+        $this->conf = $conf;
+        $this->db = new \Swoole\Coroutine\MySQL();
+        $this->connect();
     }
 
-    public static function getInstance($dsn, $username, $password, $db='') {
-        if (!self::$instance) {
-            $opts = array (
-                \PDO::ATTR_ERRMODE  => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_PERSISTENT  => TRUE,
-                // Cancel one specific SQL mode option that RackTables has been non-compliant
-                // with but which used to be off by default until MySQL 5.7. As soon as
-                // respective SQL queries and table columns become compliant with those options
-                // stop changing @@SQL_MODE but still keep SET NAMES in place.
-                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = REPLACE(@@SQL_MODE, "NO_ZERO_DATE", "")',
-                \PDO::ATTR_STRINGIFY_FETCHES => FALSE,
-                \PDO::ATTR_EMULATE_PREPARES => FALSE,
-            );
-//            if (isset ($pdo_bufsize))
-//                $opts[PDO::MYSQL_ATTR_MAX_BUFFER_SIZE] = $pdo_bufsize;
-//            if (isset ($pdo_ssl_key))
-//                $opts[PDO::MYSQL_ATTR_SSL_KEY] = $pdo_ssl_key;
-//            if (isset ($pdo_ssl_cert))
-//                $opts[PDO::MYSQL_ATTR_SSL_CERT] = $pdo_ssl_cert;
-//            if (isset ($pdo_ssl_ca))
-//                $opts[PDO::MYSQL_ATTR_SSL_CA] = $pdo_ssl_ca;
-            /*
-             * TODO singleton pattern mode.
-             */
-            self::$instance = new \PDO ($dsn, $username, $password, $opts);
-        }
-        return self::$instance;
-    }
-
-    public function reConnect() {
-        self::$instance = null;
-        $this->dbLink = self::getInstance($this->dsn, $this->username, $this->password, $this->database);
+    public function connect() {
+        $this->db->connect($this->conf);
     }
 
     public function execute($sql, $param = array()) {
-        // TODO auto reconnect
-        try {
-            $pre = $this->dbLink->prepare($sql);
-            $pre->execute($param);
-        } catch (\PDOException $e) {
-            if ($e->errorInfo[1] == 2006 || $e->errorInfo[1] == 2013) {
-                $this->reConnect();
-                $pre = $this->dbLink->prepare($sql);
-                $pre->execute($param);
-                unset($e);
-            } else {
-                throw $e;
-            }
+        $stmt = $this->db->prepare($sql);
+        if ($stmt === false) {
+            var_dump($this->db->errno, $this->db->error);
+            return false;
+        } else {
+            $ret = $stmt->execute($param);
+            $this->lastSql = $ret->queryString;
+            var_dump($stmt);
+            var_dump($ret);
+            return $ret;
         }
-        $this->lastSql = $pre->queryString;
-        return $pre;
     }
 
     public function insert($table, $columns) {
@@ -84,9 +45,9 @@ class PDODriver
         $sql .= '`) VALUES (' . $this->questionMarks (count ($columns)) . ')';
         // Now the query should be as follows:
         // INSERT INTO table (c1, c2, c3) VALUES (?, ?, ?)
-        $res = $this->execute($sql, array_values($columns))->rowCount();
-        if ($res > 0) {
-            return $this->dbLink->lastInsertId();
+        $res = $this->execute($sql, array_values($columns));
+        if ($res) {
+            return $this->db->last_id;
         } else {
             return FALSE;
         }
@@ -116,29 +77,29 @@ class PDODriver
         return $this->execute ($sql, $whereValues)->rowCount();
     }
 
-    /**
-     * 开启事务
-     * @return bool
-     */
-    public function begin() {
-        return $this->dbLink->beginTransaction();
-    }
-
-    /**
-     * 事务提交
-     * @return bool
-     */
-    public function commit() {
-        return $this->dbLink->commit();
-    }
-
-    /**
-     * 事务回滚
-     * @return bool
-     */
-    public function rollBack() {
-        return $this->dbLink->rollBack();
-    }
+//    /**
+//     * 开启事务
+//     * @return bool
+//     */
+//    public function begin() {
+//        return $this->db->beginTransaction();
+//    }
+//
+//    /**
+//     * 事务提交
+//     * @return bool
+//     */
+//    public function commit() {
+//        return $this->db->commit();
+//    }
+//
+//    /**
+//     * 事务回滚
+//     * @return bool
+//     */
+//    public function rollBack() {
+//        return $this->db->rollBack();
+//    }
 
     public function getColumn($sql, $param = array(), $col = 0) {
         return $this->execute($sql, $param)->fetchColumn($col);
@@ -223,7 +184,7 @@ class PDODriver
     }
 
     public function getLastInsertId() {
-        return $this->dbLink->lastInsertId();
+        return $this->db->last_id;
     }
 
     public function getError() {

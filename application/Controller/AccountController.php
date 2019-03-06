@@ -18,26 +18,50 @@ class AccountController extends Controller
         $user = $db->getRow('SELECT * FROM users WHERE token=?', [$token]);
 
         if ($user) {
-            $chats = $db->getAll('SELECT * FROM chats WHERE users = ?', [$user['id']]);
+//            $chats = $db->getAll('SELECT * FROM chats WHERE users = ?', [$user['id']]);
             $chatMsg = [];
-            foreach ($chats as $c) {
-                $charMsg[] = new \Proto\Chat([
-                    'err' => 0,
-                    'id' => intval($c['id']),
-                    'icon' => $c['icon'],
-                    'last_time' => intval($c['last_time']),
-                    'last_msg' => $c['last_msg'],
+//            foreach ($chats as $c) {
+//                $charMsg[] = new \Proto\Chat([
+//                    'err' => 0,
+//                    'id' => intval($c['id']),
+//                    'icon' => $c['icon'],
+//                    'last_time' => intval($c['last_time']),
+//                    'last_msg' => $c['last_msg'],
+//                ]);
+//            }
+            $friends = [];
+            $redis = new \Redis();
+//            $redis = new \Swoole\Coroutine\Redis();
+            $redis->connect('127.0.0.1', 6379, 1);
+            $users = $redis->sMembers('user');
+            foreach ($users as $u) {
+                $role = msgpack_unpack($redis->get('user:'.$u));
+                $friends[] = new \Proto\Role([
+                    'id' => intval($role['id']),
+                    'name' => $role['name'],
+                    'avatar' => $role['avatar']
                 ]);
             }
             $this->response(1004, [
                 'id' => $user['id'],
                 'username' => $user['username'],
                 'avatar' => $user['avatar'],
-//                'friends' => $this->fd,
-                'chats' => $chatMsg
+                'friends' => $friends,
+//                'chats' => $chatMsg
             ]);
             // init login
+            $role = [
+                'id' => $user['id'],
+                'name' => $user['username'],
+                'avatar' => $user['avatar'],
+            ];
 //            $this->app->event::emit('login', $user);
+            $redis->sAdd('user', intval($user['id']));
+            $redis->set('user:'.$user['id'], msgpack_pack($role));
+            $response = $this->app->dispatcher->protocol->encode(1009, [
+                'role' => new \Proto\Role($role)
+            ]);
+            $this->app->server->task(['task_id' => 1000, 'fd' => $this->fd, 'response' => $response]);
         } else {
             $this->response(1004, ['err' => 1]);
         }

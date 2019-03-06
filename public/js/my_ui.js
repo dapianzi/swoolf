@@ -33,7 +33,7 @@ var my_ui = {
     insertMsg: function(msg) {
         var cls = msg.from == my_user.id ? 'mine sending' : 'other';
         var flag = my_user.id == msg.from;
-        var avatar = flag ? my_user.avatar : '/default/avatar_'+(msg.from%9+1)+'.jpg';
+        var avatar = flag ? my_user.avatar : my_user.friends[msg.from].avatar;
         var content = '';
         if (msg.msgType == 1) {
             content = '<div class="message-content message-img">' +

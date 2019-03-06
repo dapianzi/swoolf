@@ -3,7 +3,7 @@ var my_user = {
     id: 0,
     avatar: '',
     name: '',
-    friends: [],
+    friends: {},
     chat: [],
     loginHandle: function(data) {
         if (data.err) {
@@ -13,8 +13,10 @@ var my_user = {
             this.id = data.id;
             this.avatar = data.avatar;
             this.name = data.name;
-            this.friends = data.friends;
             this.chat = data.chat;
+            for (var i in data.friends) {
+                this.friends[data.friends[i].id] = data.friends[i];
+            }
             my_ui.showChat(this.getUser());
         }
     },
@@ -31,12 +33,14 @@ var my_user = {
     logoutHandle: function(data) {
         this.clearUser();
     },
+    onlineHandle: function(data) {
+        this.friends[data.role.id] = data.role;
+    },
     login: function(data) {
         my_client.request(data, 1003);
     },
     register: function(data) {
         data.avatar = data.avatar||'/default/avatar_'+Math.ceil(Math.random()*9)+'./jpg';
-        console.log(data);
         my_client.request(data, 1001);
     },
     logout: function() {

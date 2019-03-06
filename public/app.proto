@@ -17,7 +17,7 @@ message Chat {
 message Role {
     uint32 id = 1;
     string name = 2;
-    string icon = 3;
+    string avatar = 3;
 }
 enum MessageType {
     TEXT = 0;
@@ -53,6 +53,7 @@ message ResponseLogin {
     string username = 3;
     string avatar = 4;
     repeated Chat chats = 5;
+    repeated Role friends = 6;
 }
 
 // 1005
@@ -73,6 +74,12 @@ message RequestSendMessage {
 message ResponseSendMessage {
     Error err = 1;
     uint64 msgID = 2;
+}
+
+// 1009
+message ResponseUserOnline {
+    Error err = 1;
+    Role role = 2;
 }
 
 // 1010

@@ -52,6 +52,7 @@ var my_client = {
             1004: 'ResponseLogin',
             1006: 'ResponseLogout',
             1008: 'ResponseSendMessage',
+            1009: 'ResponseUserOnline',
             1010: 'ResponseReceiveMessage',
             1012: 'ResponseGetHistoryMessage',
         }[msg_id];
@@ -68,6 +69,9 @@ var my_client = {
                     break;
                 case 1006:
                     my_user.logoutHandle();
+                    break;
+                case 1009:
+                    my_user.onlineHandle(data);
                     break;
                 case 1008:
                     clearTimeout(self.timer[data.msgID]);

@@ -12,6 +12,29 @@ require APP_PATH . '/lib/Swoolf/Loader.php';
 
 try{
     $app = new \Swoolf\App(APP_PATH.'/conf/application.ini');
+    $app->on('task', function($serv, $task_id, $src_task_id, $data) {
+        switch ($data['task_id']) {
+            case 1001:
+                $id = (new \App\Task\MessageTask())->saveMessageTask($data['data']);
+                break;
+            case 1002:
+                (new \App\Task\MessageTask())->DBtestTask();
+                break;
+            default:
+                // broadcast message
+                foreach ($serv->connections as $fd) {
+                    if (isset($data['fd']) && $fd == $data['fd']) {
+                        continue;
+                    }
+                    $info = $this->server->connection_info($fd);
+                    if ($info['websocket_status'] == WEBSOCKET_STATUS_ACTIVE) {
+                        $this->server->push($fd, $data['response'], WEBSOCKET_OPCODE_BINARY);
+                    }
+                }
+                $this->log::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
+        }
+        $serv->finish($data);
+    });
     \Swoolf\Dispatcher::setRules([
         1001 => [
             'proto' => 'RequestRegister',
