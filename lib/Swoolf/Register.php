@@ -21,10 +21,9 @@ class Register
     }
 
     public static function set($name, $val) {
-        if (isset(self::$storage[$name])) {
-            throw new \Exception('can not write with a readonly variable.');
+        if (!isset(self::$storage[$name])) {
+            self::$storage[$name] = $val;
         }
-        self::$storage[$name] = $val;
     }
 
 }

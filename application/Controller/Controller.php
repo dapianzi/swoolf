@@ -23,6 +23,34 @@ class Controller
     }
 
     public function response($msg_id, $data=null) {
-        $this->app->server->push($this->fd, $this->app->dispatcher->protocol->encode($msg_id, $data), WEBSOCKET_OPCODE_BINARY);
+        $this->getServer()->push($this->fd, $this->encode($msg_id, $data), WEBSOCKET_OPCODE_BINARY);
+    }
+
+    public function encode($msg_id, $data) {
+        return $this->app->dispatcher->protocol->encode($msg_id, $data);
+    }
+
+    public function getServer() {
+        return $this->app->server;
+    }
+
+    public function getRedis() {
+        return $this->app->redis();
+    }
+
+    public function getDB($name='') {
+        if (empty($name)) {
+            return $this->app->db;
+        } else {
+            return $this->app->db[$name];
+        }
+    }
+
+    public function getData() {
+        return $this->request->msg_data;
+    }
+
+    public function getMsgId() {
+        return $this->request->msg_id;
     }
 }

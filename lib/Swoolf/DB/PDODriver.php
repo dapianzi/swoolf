@@ -12,62 +12,37 @@ class PDODriver
     static public $instance;
 
     private $dbLink;
+    private $lastSql;
     private $dsn;
     private $username;
     private $password;
-    private $database;
-    private $lastInsertId;
     private $errMessage;
 
     public function __construct($dsn, $username, $password) {
         $this->dsn = $dsn;
         $this->username = $username;
         $this->password = $password;
-        $this->dbLink = self::getInstance($dsn, $username, $password, $db='');
+        $this->connect();
     }
 
-    public static function getInstance($dsn, $username, $password, $db='') {
-        if (!self::$instance) {
-            $opts = array (
-                \PDO::ATTR_ERRMODE  => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_PERSISTENT  => TRUE,
-                // Cancel one specific SQL mode option that RackTables has been non-compliant
-                // with but which used to be off by default until MySQL 5.7. As soon as
-                // respective SQL queries and table columns become compliant with those options
-                // stop changing @@SQL_MODE but still keep SET NAMES in place.
-                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = REPLACE(@@SQL_MODE, "NO_ZERO_DATE", "")',
-                \PDO::ATTR_STRINGIFY_FETCHES => FALSE,
-                \PDO::ATTR_EMULATE_PREPARES => FALSE,
-            );
-//            if (isset ($pdo_bufsize))
-//                $opts[PDO::MYSQL_ATTR_MAX_BUFFER_SIZE] = $pdo_bufsize;
-//            if (isset ($pdo_ssl_key))
-//                $opts[PDO::MYSQL_ATTR_SSL_KEY] = $pdo_ssl_key;
-//            if (isset ($pdo_ssl_cert))
-//                $opts[PDO::MYSQL_ATTR_SSL_CERT] = $pdo_ssl_cert;
-//            if (isset ($pdo_ssl_ca))
-//                $opts[PDO::MYSQL_ATTR_SSL_CA] = $pdo_ssl_ca;
-            /*
-             * TODO singleton pattern mode.
-             */
-            self::$instance = new \PDO ($dsn, $username, $password, $opts);
-        }
-        return self::$instance;
-    }
-
-    public function reConnect() {
-        self::$instance = null;
-        $this->dbLink = self::getInstance($this->dsn, $this->username, $this->password, $this->database);
+    public function connect() {
+        $opts = array (
+            \PDO::ATTR_ERRMODE  => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_PERSISTENT  => TRUE,
+            \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = REPLACE(@@SQL_MODE, "NO_ZERO_DATE", "")',
+            \PDO::ATTR_STRINGIFY_FETCHES => FALSE,
+            \PDO::ATTR_EMULATE_PREPARES => FALSE,
+        );
+        $this->dbLink = new \PDO ($this->dsn, $this->username, $this->password, $opts);
     }
 
     public function execute($sql, $param = array()) {
-        // TODO auto reconnect
         try {
             $pre = $this->dbLink->prepare($sql);
             $pre->execute($param);
         } catch (\PDOException $e) {
             if ($e->errorInfo[1] == 2006 || $e->errorInfo[1] == 2013) {
-                $this->reConnect();
+                $this->connect();
                 $pre = $this->dbLink->prepare($sql);
                 $pre->execute($param);
                 unset($e);
@@ -82,8 +57,6 @@ class PDODriver
     public function insert($table, $columns) {
         $sql = " INSERT INTO {$table} (`" . implode ('`, `', array_keys ($columns));
         $sql .= '`) VALUES (' . $this->questionMarks (count ($columns)) . ')';
-        // Now the query should be as follows:
-        // INSERT INTO table (c1, c2, c3) VALUES (?, ?, ?)
         $res = $this->execute($sql, array_values($columns))->rowCount();
         if ($res > 0) {
             return $this->dbLink->lastInsertId();
@@ -94,11 +67,9 @@ class PDODriver
 
     public function update($table, $param, $where, $conjunction = 'AND') {
         if (!count($param)) {
-            $this->errMessage = 'update must have set.';
             throw new \Exception('update must have set.');
         }
         if (!count($where)) {
-            $this->errMessage = 'update must have where.';
             throw new \Exception('update must have where.');
         }
         $whereValues = array();
@@ -158,6 +129,53 @@ class PDODriver
 
     public function getRow($sql, $param = array()) {
         return $this->execute($sql, $param)->fetch(\PDO::FETCH_ASSOC);
+    }
+
+    public function get($id) {
+        return $this->getRow("SELECT * FROM {$this->table} WHERE {$this->pk}=?", array($id));
+    }
+
+    /**
+     * @param string $col
+     * @param string $table
+     * 查询表的字段
+     * @return mixed
+     */
+    public function getColInfo($table, $col) {
+        return $this->getRow("SHOW COLUMNS FROM {$table} WHERE FIELD = ?", array($col));
+    }
+
+    /**
+     * @param string $col
+     * @param string $table
+     * 快速获取枚举类型列表
+     * @return array
+     */
+    public function getColEnum($table, $col) {
+        $col_info = $this->getColInfo($table, $col);
+        $enum = explode(',', preg_replace('/^enum\((.*)\)$/i', '$1', $col_info['Type']));
+        return array_map(function($v){return trim($v, '\'');}, $enum);
+    }
+
+    public function upsert($table, $keys, $data, $pk='id') {
+        $sql = 'SELECT '.$pk.' FROM '.$table.' WHERE '.$this->makeWhereSQL($keys, 'AND', $params);
+        $id = $this->getColumn($sql, $params);
+        if ($id > 0) {
+            return $this->update($table, $data, [$pk => $id]);
+        } else {
+            return $this->insert($table, array_merge($keys, $data));
+        }
+    }
+
+    public function setDec($table, $where, $field, $num=1) {
+        return $this->setInc($table, $where, $field, -$num);
+    }
+
+    public function setInc($table, $where, $field, $num=1) {
+        $num = intval($num);
+        $params = [];
+        $sql = 'UPDATE '.$table.' SET '.$field.'='.$field.'+'.$num.' WHERE '. $this->makeWhereSQL($where, 'AND', $params);
+        return $this->execute($sql, $params)->rowCount();
     }
 
     public function makeSetSQL($columns) {

@@ -15,14 +15,14 @@ final class App
 
     protected static $INSTANCE = NULL;
 
+    public static $facades = [];
+
     private $callbackFn = [];
 
     public $conf = NULL;
-    /*
-     * Debug
-     */
-    public $debug = TRUE;
-    public $logFile = './swoolf.log';
+
+    public $db;
+    public $redis;
 
     /*
      * dispatcher
@@ -55,39 +55,19 @@ final class App
         } else {
             $this->conf = $this->parseIni($ini);
         }
-        Register::set('conf', $this->conf);
-        // global config
-
         // log config
-        if (isset($this->conf['debug'])) {
-            $this->debugConf($this->conf['debug']);
-        }
-        // dispatcher config
-        if (isset($this->conf['dispatcher'])) {
-            $this->dispatcherConf($this->conf['dispatcher']);
-        }
+        $this->iniDebug();
         // server config
-        $this->serverSettings = $this->defaultServerSettings();
-        if (isset($this->conf['server'])) {
-            $this->serverConf($this->conf['server']);
-        }
-        // register facades
-        $this->facade::reg('loader', __NAMESPACE__.'\Loader');
-        $this->facade::reg('log', __NAMESPACE__.'\Log');
-        $this->facade::reg('utils', __NAMESPACE__.'\Utils');
-        $this->facade::reg('event', __NAMESPACE__.'\Event');
-//        $this->facade::reg('table', __NAMESPACE__.'\Table');
-
-        // init table
-        $this->table = new \Swoole\Table(1024);
-        $this->table->column('id', \Swoole\Table::TYPE_INT, 4);       //1,2,4,8
-        $this->table->column('name', \Swoole\Table::TYPE_STRING, 64);
-        $this->table->column('icon', \Swoole\Table::TYPE_STRING, 255);
-        $this->table->create();
+        $this->iniServerConf();
+        // dispatcher config
+        $this->iniDispatcher();
+        // init facades
+        $this->iniFacades();
+        Register::set('conf', $this->conf);
         self::$INSTANCE = $this;
     }
 
-    public function parseIni($file) {
+    private function parseIni($file) {
         $conf = Utils::parseInFile($file);
         if (defined('APP_ENV') && APP_ENV == 'product') {
             return isset($conf['product']) ? $conf['product'] : $conf['common'];
@@ -95,17 +75,29 @@ final class App
         return isset($conf['develop']) ? $conf['develop'] : $conf['common'];
     }
 
-    public function debugConf($conf) {
-        if (isset($conf['debug'])) {
-            Log::setDebug($conf['debug']);
-        }
-        if (isset($conf['log_file'])) {
-            Log::setLogFile($conf['log_file']);
-        }
+    private function iniFacades() {
+        // register facades
+        $this->facade('loader', __NAMESPACE__.'\Loader');
+        $this->facade('log', __NAMESPACE__.'\Log');
+        $this->facade('utils', __NAMESPACE__.'\Utils');
+        $this->facade('event', __NAMESPACE__.'\Event');
     }
 
-    public function defaultServerSettings() {
-        return [
+    private function iniDebug() {
+        $debug = FALSE;
+        $log_file = 'log.log';
+        if (isset($this->conf['debug'])) {
+            $debug = $this->conf['debug'];
+        }
+        if (isset($this->conf['log_file'])) {
+            $log_file = $this->conf['log_file'];
+        }
+        Log::setDebug($debug);
+        Log::setLogFile($log_file);
+    }
+
+    private function iniServerConf() {
+        $default = [
             'worker_num' => 4,
             'user' => 'root',
             'group' => 'root',
@@ -115,44 +107,73 @@ final class App
             'log_level' => SWOOLE_LOG_DEBUG,
             'max_request' => 5,
         ];
-    }
 
-    /**
-     * 初始化服务器配置
-     * @param $conf
-     */
-    public function serverConf($conf) {
-
-        if (isset($conf['type'])) {
-            $this->serverType = $conf['type'];
+        if (isset($this->conf['server']['type'])) {
+            $this->serverType = $this->conf['server']['type'];
         }
-        if (isset($conf['name'])) {
-            $this->serverName = $conf['name'];
+        if (isset($this->conf['server']['name'])) {
+            $this->serverName = $this->conf['server']['name'];
         }
-        if (isset($conf['host'])) {
-            $this->serverHost = $conf['host'];
+        if (isset($this->conf['server']['host'])) {
+            $this->serverHost = $this->conf['server']['host'];
         }
-        if (isset($conf['port'])) {
-            $this->serverPort = $conf['port'];
+        if (isset($this->conf['server']['port'])) {
+            $this->serverPort = $this->conf['server']['port'];
         }
-        if (isset($conf['mode'])) {
-            $this->serverMode = $conf['mode'];
+        if (isset($this->conf['server']['mode'])) {
+            $this->serverMode = $this->conf['server']['mode'];
         }
-        if (isset($conf['settings'])) {
-            $this->serverSettings = array_merge($this->serverSettings, $conf['settings']);
+        if (isset($this->conf['server']['settings'])) {
+            $this->serverSettings = array_merge($default, $this->conf['server']['settings']);
         }
     }
 
-    /**
-     * 初始化路由协议
-     * @param $conf
-     * @throws \Exception
-     */
-    public function dispatcherConf($conf) {
-        $this->dispatcher = new Dispatcher($conf);
+    private function iniRedis() {
+        if (isset($this->conf['redis'])) {
+            $redis = new DB\RedisDriver();
+            $redis->connect($this->conf['redis']['host'], $this->conf['redis']['port'], $this->conf['redis']['timeout']);
+//            if (isset($this->conf['redis']['options'])) {
+//                $redis->setOptions($this->conf['redis']['options']);
+//            }
+            $this->redis = $redis;
+        }
     }
 
-    protected function initServer() {
+    private function iniDB() {
+        if (isset($this->conf['db'])) {
+            if (isset($this->conf['db']['multi']) && $this->conf['db']['multi']) {
+                $this->db = [];
+                $dbs = explode(',', $this->conf['db']['dbs']);
+                foreach ($dbs as $name) {
+                    $this->db[$name] = $this->getDB($this->conf[$name]);
+                }
+            } else {
+                $this->db = $this->getDB($this->conf['db']);
+            }
+        }
+    }
+
+    private function getDB($conf) {
+        switch ($conf['type']){
+            case 'mongo':
+                $db = new DB\MongoDriver($conf);
+                break;
+            case 'pdo':
+                $db = new DB\PDODriver($conf['dsn'], $conf['username'], $conf['password']);
+                break;
+            case 'mysql':
+            default:
+                $db = new CoDB\Mysql($conf);
+        }
+        return $db;
+    }
+
+    private function iniDispatcher() {
+        $dispatcher = isset($this->conf['dispatcher']) ? $this->conf['dispatcher'] : '';
+        $this->dispatcher = new Dispatcher($dispatcher);
+    }
+
+    private function initServer() {
         switch ($this->serverType) {
             case self::SERVER_TYPE_HTTP: {
                 $this->server = new Server\Http($this->serverHost, $this->serverPort);
@@ -172,7 +193,11 @@ final class App
         $this->bind();
     }
 
-    protected function bind() {
+    public function facade($name, $class) {
+        self::$facades[$name] = $class;
+    }
+
+    private function bind() {
         /************ all server. *************/
         $this->server->on('start', [$this, 'onStart']);
         $this->server->on('managerStart', [$this, 'onManagerStart']);
@@ -208,7 +233,11 @@ final class App
         }
     }
 
-    // TODO 绑定自定义回调事件
+    /**
+     * 自定义server回调
+     * @param $event
+     * @param $func
+     */
     public function on($event, $func) {
         $this->callbackFn[$event] = $func;
     }
@@ -238,6 +267,12 @@ final class App
     }
 
     public function onWorkerStart($server, $worker_id) {
+        // init redis
+        $this->iniRedis();
+        $this->redis->sAdd('user:workers', $worker_id);
+        // init db
+        $this->iniDB();
+        $this->db['mongo']->insertOne('worker', ['id' => $worker_id, 'time' => date('Y-m-d H:i:s')]);
         if ($server->taskworker) {
             Log::info(sprintf('task [%d] begin..', $worker_id));
             swoole_set_process_name($this->serverName. '-task-worker-'.$worker_id);
@@ -320,8 +355,27 @@ final class App
     /************************ tcp socket ************************/
 
 
+    /**
+     * 创建 swoole 共享内存 table
+     * @param $name
+     * @param $columns
+     * @param int $length
+     */
+    public function createTable($name, $columns, $length=1024) {
+        $table = new \Swoole\Table($length);
+        foreach ($columns as $col) {
+            $table->column($col['name'], $col['type'], $col['length']);       //1,2,4,8
+        }
+        $table->create();
+        $this->table[$name] = $table;
+    }
 
-
+    public function getTable($name) {
+        if (isset($this->table[$name])) {
+            return $this->table[$name];
+        }
+        return null;
+    }
 
     public function getServerPid() {
         $pid_file = $this->serverSettings['pid_file'];
@@ -426,14 +480,14 @@ final class App
     }
 
     /**
-     * magic method for facades.
      * @param $name
+     * @param $arguments
      * @return mixed
      * @throws SwoolfException
      */
-    public function __get($name) {
-        if (isset(Facade::$facades[$name])) {
-            return Facade::$facades[$name]::i();
+    public function __call($name, $arguments) {
+        if (isset(self::$facades[$name])) {
+            return call_user_func_array(self::$facades[$name].'::i', $arguments);
         } else {
             throw new SwoolfException('unregister facade:'. $name);
         }

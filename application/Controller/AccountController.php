@@ -13,8 +13,8 @@ class AccountController extends Controller
 {
 
     public function LoginAction() {
-        $token = $this->request->msg_data->getToken();
-        $db = new UserModel();
+        $token = $this->getData()->getToken();
+        $db = $this->getDB('pdo');
         $user = $db->getRow('SELECT * FROM users WHERE token=?', [$token]);
 
         if ($user) {
@@ -30,12 +30,10 @@ class AccountController extends Controller
 //                ]);
 //            }
             $friends = [];
-            $redis = new \Redis();
-//            $redis = new \Swoole\Coroutine\Redis();
-            $redis->connect('127.0.0.1', 6379, 1);
+            $redis = $this->getRedis();
             $users = $redis->sMembers('user');
             foreach ($users as $u) {
-                $role = msgpack_unpack($redis->get('user:'.$u));
+                $role = $redis->getArr('user:'.$u);
                 $friends[] = new \Proto\Role([
                     'id' => intval($role['id']),
                     'name' => $role['name'],
@@ -57,11 +55,11 @@ class AccountController extends Controller
             ];
 //            $this->app->event::emit('login', $user);
             $redis->sAdd('user', intval($user['id']));
-            $redis->set('user:'.$user['id'], msgpack_pack($role));
-            $response = $this->app->dispatcher->protocol->encode(1009, [
+            $redis->setArr('user:'.$user['id'], $role);
+            $response = $this->encode(1009, [
                 'role' => new \Proto\Role($role)
             ]);
-            $this->app->server->task(['task_id' => 1000, 'fd' => $this->fd, 'response' => $response]);
+            $this->getServer()->task(['task_id' => 1000, 'fd' => $this->fd, 'response' => $response]);
         } else {
             $this->response(1004, ['err' => 1]);
         }
@@ -72,13 +70,12 @@ class AccountController extends Controller
         $username = $msg->getUsername();
         $password = $msg->getPassword();
         $avatar = $msg->getAvatar();
-        $db = new \App\Model\UserModel();
 
-        $app = \Swoolf\App::getInstance();
+        $db = $this->getDB('pdo');
         $user = $db->getRow('SELECT * FROM users WHERE username=?', [$username]);
         if ($user) {
             // login
-            if ($app->utils::encryptStr($password) == $user['password']) {
+            if ($this->app->utils()::encryptStr($password) == $user['password']) {
                 $this->response(1002, [
                     'err' => 0,
                     'token' => $user['token']
@@ -88,10 +85,10 @@ class AccountController extends Controller
             }
         } else {
             // save to db
-            $token = $app->utils::randomStr(32);
+            $token = $this->app->utils()::randomStr(32);
             $id = $db->add([
                 'username' => $username,
-                'password' => $app->utils::encryptStr($password),
+                'password' => $this->app->utils()::encryptStr($password),
                 'avatar' => $avatar,
                 'token' => $token
             ]);
@@ -116,8 +113,8 @@ class AccountController extends Controller
 
     public function LogoutAction() {
         $this->response(1006);
-        $this->app->event::emit('logout', $this->fd);
-        $this->app->server->close($this->fd);// close socket
+        $this->app->event()::emit('logout', $this->fd);
+        $this->getServer()->close($this->fd);// close socket
     }
 
 

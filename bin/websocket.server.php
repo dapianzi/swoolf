@@ -61,7 +61,7 @@ try{
             'proto' => 'ResponseGetHistoryMessage'
         ]
     ]);
-    $app->loader::regNamespace('App', APP_PATH.'/application');
+    $app->loader()::regNamespace('App', APP_PATH.'/application');
     $app->on('message', function($server, $frame) use($app) {
 //        \Swoolf\Log::log('');
         $dispatcher = $app->dispatcher;
@@ -73,12 +73,12 @@ try{
                 $obj->$action();
                 unset($obj);
             } catch (\Exception $e) {
-                $app->log::err($e->getMessage());
-                $app->log::log($e->getTraceAsString());
+                $app->log()::err($e->getMessage());
+                $app->log()::log($e->getTraceAsString());
             }
         } else {
-            $app->log::err('Unpack error:'.$frame->data);
-            $app->log::warm(sprintf('Unpack message from fd[%d], ip[%s]', $frame->fd, $server->getClientInfo($frame->fd)['remote_ip']));
+            $app->log()::err('Unpack error:'.$frame->data);
+            $app->log()::warm(sprintf('Unpack message from fd[%d], ip[%s]', $frame->fd, $server->getClientInfo($frame->fd)['remote_ip']));
             return false;
         }
     });
@@ -102,15 +102,12 @@ try{
                         $serv->push($fd, $data['response'], WEBSOCKET_OPCODE_BINARY);
                     }
                 }
-                $app->log::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
+                $app->log()::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
         }
         $serv->finish('ok');
     });
-    $app->on('shutdown', function($server) {
-        $redis = new Redis();
-        $redis->connect('127.0.0.1', 6379, 1);
-        $redis->del('user');
-        $redis->close();
+    $app->on('workerStop', function($server, $worker_id) use ($app) {
+        $app->redis->del('user');
     });
     $app->run();
 } catch (\Exception $e) {

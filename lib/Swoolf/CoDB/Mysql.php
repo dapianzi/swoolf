@@ -5,7 +5,7 @@
  * Date: 2019/3/4
  * Time: 18:22
  */
-namespace Swoolf\DB;
+namespace Swoolf\CoDB;
 
 class Mysql
 {
@@ -22,7 +22,7 @@ class Mysql
         $this->connect();
     }
 
-    public function connect() {
+    private function connect() {
         $this->db->connect($this->conf);
     }
 

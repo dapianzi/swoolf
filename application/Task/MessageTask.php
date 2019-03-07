@@ -14,14 +14,13 @@ class MessageTask
     }
 
     public static function saveMessageTask($msg) {
-        return (new \App\Model\PDOModel('messages'))->add($msg);
+        return \Swoolf\App::getInstance()->db['pdo']->insert('messages', $msg);
     }
 
     public static function DBtestTask() {
-        $db = new \App\Model\PDOModel();
         $app = \Swoolf\App::getInstance();
         while (TRUE) {
-            $app->log::log($db->getAll('SHOW TABLES;'));
+            $app->log::log($app->db['pdo']->getAll('SHOW TABLES;'));
             sleep(1);
         }
     }

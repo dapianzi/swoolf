@@ -24,8 +24,8 @@ class Dispatcher
     public $controller;
     public $action;
 
-    public function __construct($conf){
-        switch (strtolower($conf['type'])) {
+    public function __construct($type = ''){
+        switch ($type) {
             case self::PROTOCOL_TYPE_JSON:
                 $this->protocolType = self::PROTOCOL_TYPE_JSON;
                 $this->protocol = new Protocol\JSON();break;

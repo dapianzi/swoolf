@@ -31,7 +31,7 @@ try{
                         $this->server->push($fd, $data['response'], WEBSOCKET_OPCODE_BINARY);
                     }
                 }
-                $this->log::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
+                $this->log()::info(sprintf('Broadcast finish at %f', microtime(TRUE)));
         }
         $serv->finish($data);
     });

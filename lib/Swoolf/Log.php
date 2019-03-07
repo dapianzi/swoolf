@@ -24,7 +24,7 @@ class Log implements Interfaces\FacadeInterface
         if (is_writable(dirname($filename))) {
             self::$LOG_FILE = $filename;
         } else {
-            self::err('filename: ' . $filename . ' can not be written.');
+            self::err('filename: "' . $filename . '" can not be written.');
         }
     }
 
